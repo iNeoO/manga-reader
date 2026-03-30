@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - apps/*
+allowBuilds:
+  '@nestjs/core': true
+
+catalog:
+  "@types/node": ^25.5.0
+  typescript: ^6.0.2

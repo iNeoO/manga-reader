@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: manga-reader-postgres-dev
+    environment:
+      POSTGRES_DB: ${PG_MANGA_READER_DB}
+      POSTGRES_USER: ${PG_MANGA_READER_USER}
+      POSTGRES_PASSWORD: ${PG_MANGA_READER_PASSWORD}
+    ports:
+      - "127.0.0.1:${PG_PORT}:5432"
+    networks:
+      - manga-reader-postgres-network
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_MANGA_READER_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # studio:
+  #   container_name: manga-reader-studio-dev
+  #   build:
+  #     dockerfile: ./apps/backend/Dockerfile.studio
+  #   depends_on:
+  #     - postgres
+  #   ports:
+  #     - "127.0.0.1:3015:5555"
+  #   networks:
+  #     - manga-reader-postgres-network
+  #   environment:
+  #     PG_URL: postgres://${PG_MANGA_READER_USER}:${PG_MANGA_READER_PASSWORD}@postgres:5432/${PG_MANGA_READER_DB}
+
+volumes:
+  pgdata:
+
+networks:
+  manga-reader-postgres-network:
+    driver: bridge

@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Page {
+  id String @id @default(cuid())
+  name String
+  path String
+  number Int
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+  chapterId  String
+  chaptersRead ChapterRead[]
+  
+  mangaCoverPage Manga? @relation("mangaCoverPage")
+  chapterCoverPage Chapter? @relation("chapterCoverPage")
+
+  @@unique([chapterId, number])
+  @@unique([chapterId, name])
+}
+
+model Chapter {
+  id String @id @default(cuid())
+  name String
+  manga Manga @relation(fields: [mangaId], references: [id])
+  number Int
+  mangaId  String
+  pages Page[]
+  chaptersRead ChapterRead[]
+  
+  coverPageId String? @unique
+  coverPage Page? @relation("chapterCoverPage", fields: [coverPageId], references: [id])
+  
+  @@unique([mangaId, name])
+  @@unique([mangaId, number])
+}
+
+model Manga {
+  id String @id @default(cuid())
+  name String @unique
+  chapters Chapter[]
+  coverPageId String? @unique
+  coverPage Page? @relation("mangaCoverPage", fields: [coverPageId], references: [id])
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  username String
+  password String
+  createdAt DateTime @default(now())
+  lastLoginOn DateTime?
+  chaptersRead ChapterRead[]
+}
+
+model ChapterRead {
+  isRead Boolean
+  user User @relation(fields: [userId], references: [id])
+  userId String
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+  chapterId  String
+  page Page @relation(fields: [lastPageReadId], references: [id])
+  lastPageReadId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@id([userId, chapterId])
+}
