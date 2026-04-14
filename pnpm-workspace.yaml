@@ -4,6 +4,26 @@ packages:
 allowBuilds:
   '@nestjs/core': true
 
+overrides:
+  'vue': 'beta'
+  '@vue/compiler-core': 'beta'
+  '@vue/compiler-dom': 'beta'
+  '@vue/compiler-sfc': 'beta'
+  '@vue/compiler-ssr': 'beta'
+  '@vue/compiler-vapor': 'beta'
+  '@vue/reactivity': 'beta'
+  '@vue/runtime-core': 'beta'
+  '@vue/runtime-dom': 'beta'
+  '@vue/runtime-vapor': 'beta'
+  '@vue/server-renderer': 'beta'
+  '@vue/shared': 'beta'
+  '@vue/compat': 'beta'
+
+peerDependencyRules:
+  allowAny:
+    - 'vue'
+
 catalog:
   "@types/node": ^25.5.0
   typescript: ^6.0.2
+  '@biomejs/biome': ^2.4.10

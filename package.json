@@ -1,25 +1,26 @@
 {
-  "name": "manga-reader",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "backend:dev": "dotenv -e .env -- pnpm --filter @manga-reader/backend start:dev",
-    "backend:build": "dotenv -e .env -- pnpm --filter @manga-reader/backend build",
-    "db:build": "dotenv -e .env -- pnpm --filter @manga-reader/db build",
-    "db:generate": "dotenv -e .env -- pnpm --filter @manga-reader/db generate",
-    "db:migrate": "dotenv -e .env -- pnpm --filter @manga-reader/db migrate",
-    "db:deploy": "dotenv -e .env -- pnpm --filter @manga-reader/db deploy",
-    "db:reset": "dotenv -e .env -- pnpm --filter @manga-reader/db reset"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "dotenv-cli": "^11.0.0"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1"
-  },
-  "packageManager": "pnpm@10.32.1"
+	"name": "manga-reader",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"backend:dev": "dotenv -e .env -- pnpm --filter @manga-reader/backend start:dev",
+		"backend:build": "dotenv -e .env -- pnpm --filter @manga-reader/backend build",
+		"db:build": "dotenv -e .env -- pnpm --filter @manga-reader/db build",
+		"db:generate": "dotenv -e .env -- pnpm --filter @manga-reader/db generate",
+		"db:migrate": "dotenv -e .env -- pnpm --filter @manga-reader/db migrate",
+		"db:deploy": "dotenv -e .env -- pnpm --filter @manga-reader/db deploy",
+		"db:reset": "dotenv -e .env -- pnpm --filter @manga-reader/db reset",
+		"lint": "pnpm -r run lint"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"dotenv-cli": "^11.0.0"
+	},
+	"devDependencies": {
+		"concurrently": "^9.2.1"
+	},
+	"packageManager": "pnpm@10.32.1"
 }
