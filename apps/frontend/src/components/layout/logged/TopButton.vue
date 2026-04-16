@@ -11,56 +11,44 @@
   </button>
 </template>
 
-<script lang="ts">
-import {
-  defineComponent,
-  ref,
-  Ref,
-  onMounted,
-  onBeforeUnmount,
-} from 'vue';
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
-export default defineComponent({
-  name: 'topButton',
-  props: {
-    windowSelector: {
-      type: String,
-      required: true,
-    },
-  },
-  setup(props) {
-    const isButtonVisible:Ref<boolean> = ref(false);
+const props = defineProps<{
+	windowSelector: string;
+}>();
 
-    onMounted(() => {
-      const element = document.querySelector(props.windowSelector);
-      if (!element) {
-        throw new Error(`Element ${props.windowSelector} not found !`);
-      }
-      const scrollHandler = () => {
-        isButtonVisible.value = element.scrollTop > 300;
-      };
-      element.addEventListener('scroll', scrollHandler);
+const isButtonVisible = ref(false);
+let scrollElement: HTMLElement | null = null;
 
-      onBeforeUnmount(() => {
-        element.removeEventListener('scroll', scrollHandler);
-      });
-    });
+const getScrollElement = (): HTMLElement => {
+	const element = document.querySelector<HTMLElement>(props.windowSelector);
+	if (!element) {
+		throw new Error(`Element ${props.windowSelector} not found !`);
+	}
+	return element;
+};
 
-    const scrollToTop = () => {
-      const element = document.querySelector(props.windowSelector);
-      if (!element) {
-        throw new Error(`Element ${props.windowSelector} not found !`);
-      }
-      element.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
-    };
+const scrollHandler = () => {
+	if (!scrollElement) {
+		return;
+	}
+	isButtonVisible.value = scrollElement.scrollTop > 300;
+};
 
-    return {
-      scrollToTop,
-      isButtonVisible,
-    };
-  },
+onMounted(() => {
+	scrollElement = getScrollElement();
+	scrollElement.addEventListener("scroll", scrollHandler);
 });
+
+onBeforeUnmount(() => {
+	scrollElement?.removeEventListener("scroll", scrollHandler);
+});
+
+const scrollToTop = () => {
+	getScrollElement().scrollTo({
+		top: 0,
+		behavior: "smooth",
+	});
+};
 </script>

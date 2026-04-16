@@ -1,5 +1,5 @@
 <template>
-  <div class="table mx-auto">
+  <div class="w-full max-w-full mx-auto">
     <div class="flex justify-between mb-2">
       <div>
         <div
@@ -26,12 +26,14 @@
         <reload-icon />
       </button>
     </div>
-    <div class="relative inline-block">
+    <div
+      class="relative block w-full md:inline-block md:w-auto"
+      :class="isDoublePage ? 'overflow-x-auto' : 'overflow-x-hidden md:overflow-visible'">
       <img
         v-if="pageId"
         id="page"
         v-loading-image="isLoading"
-        class="image"
+        :class="['image', { 'image-double': isDoublePage }]"
         :src="`/api/pages/${pageId}`">
       <button
         class="absolute inset-y-0 w-1/4 focus:outline-none"
@@ -70,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import GoTo from "@/components/utils/GoTo.vue";
@@ -90,6 +92,7 @@ const router = useRouter();
 const goToRef = ref<InstanceType<typeof GoTo> | null>(null);
 const isInited = ref(false);
 const isLoading = ref(false);
+const isDoublePage = ref(false);
 
 const manga = computed(() => mangaStore.manga);
 const chapter = computed(() => mangaStore.chapter);
@@ -247,12 +250,22 @@ const resetStates = () => {
 };
 
 const successHandler = () => {
+	const pageElement = document.getElementById("page") as HTMLImageElement | null;
+	if (pageElement) {
+		isDoublePage.value =
+			pageElement.naturalWidth > pageElement.naturalHeight * 1.15;
+	}
 	isLoading.value = false;
 };
 
 const errorHandler = () => {
+	isDoublePage.value = false;
 	isLoading.value = false;
 };
+
+watch(pageId, () => {
+	isDoublePage.value = false;
+});
 
 onMounted(async () => {
 	await checkPage(
@@ -278,12 +291,26 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .image {
-  height: 603px;
-  max-width: fit-content;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
+
+.image-double {
+  width: auto;
+  height: 100dvh;
+  max-width: none;
+}
+
 @media (min-width:768px) {
   .image {
+    width: auto;
     height: 760px;
+    max-width: 100%;
+  }
+
+  .image-double {
     max-width: 100%;
   }
 }

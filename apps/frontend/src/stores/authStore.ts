@@ -1,7 +1,11 @@
-import got from "got";
-import Cookies from "js-cookie";
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { api } from "@/lib/api";
+import {
+	clearAuthToken,
+	setAuthToken,
+	tokenCookieName,
+} from "@/lib/auth";
 
 export type LoginForm = {
 	email: string;
@@ -9,18 +13,9 @@ export type LoginForm = {
 };
 
 export type LoginReturn = {
-	access_token: string;
+	access_token?: string;
+	token?: string;
 };
-
-export const tokenCookieName =
-	import.meta.env.VITE_COOKIE_TOKEN_NAME ??
-	import.meta.env.VUE_APP_COOKIE_TOKEN_NAME ??
-	"access_token";
-const tokenCookieDuration = Number(
-	import.meta.env.VITE_COOKIE_TOKEN_DURATION ??
-		import.meta.env.VUE_APP_COOKIE_TOKEN_DURATION ??
-		1,
-);
 
 export const useAuthStore = defineStore("auth", () => {
 	const isLogged = ref(false);
@@ -30,19 +25,21 @@ export const useAuthStore = defineStore("auth", () => {
 		isLoginLoading.value = true;
 
 		try {
-			const data = await got
+			const data = await api
 				.post("auth/login/", {
 					json: payload,
 				})
 				.json<LoginReturn>();
 
-			isLogged.value = true;
-			Cookies.set(tokenCookieName, data.access_token, {
-				expires: tokenCookieDuration,
-				secure: true,
-			});
+			const token = data.token ?? data.access_token;
+			if (!token) {
+				throw new Error("Missing authentication token.");
+			}
 
-			return data;
+			isLogged.value = true;
+			setAuthToken(token);
+
+			return { ...data, token, access_token: token };
 		} finally {
 			isLoginLoading.value = false;
 		}
@@ -54,7 +51,7 @@ export const useAuthStore = defineStore("auth", () => {
 
 	function logout() {
 		isLogged.value = false;
-		Cookies.remove(tokenCookieName);
+		clearAuthToken();
 	}
 
 	return {

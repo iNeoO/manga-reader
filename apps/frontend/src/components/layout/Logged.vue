@@ -17,41 +17,21 @@
   </div>
 </template>
 
-<script lang="ts">
-import {
-  defineComponent,
-  computed,
-} from 'vue';
+<script setup lang="ts">
+import { computed } from "vue";
+import HeaderBar from "@/components/layout/logged/HeaderBar.vue";
+import Sidebar from "@/components/layout/logged/Sidebar.vue";
+import TopButton from "@/components/layout/logged/TopButton.vue";
+import { useApplicationStore } from "@/stores/applicationStore";
 
-import { useStore } from '@/store/index';
-import { ApplicationMutationTypes } from '@/store/types/mutation.type';
+const applicationStore = useApplicationStore();
 
-import Sidebar from '@/components/layout/logged/Sidebar.vue';
-import HeaderBar from '@/components/layout/logged/HeaderBar.vue';
-import TopButton from '@/components/layout/logged/TopButton.vue';
-
-export default defineComponent({
-  name: 'logged',
-  components: {
-    Sidebar,
-    HeaderBar,
-    TopButton,
-  },
-  setup() {
-    const store = useStore();
-
-    const isSidebarOpen = computed({
-      get(): boolean {
-        return store.getters['applicationStore/isSidebarOpen'];
-      },
-      set(value: boolean) {
-        store.commit(ApplicationMutationTypes.SET_IS_SIDEBAR_OPEN, value);
-      },
-    });
-
-    return {
-      isSidebarOpen,
-    };
-  },
+const isSidebarOpen = computed({
+	get(): boolean {
+		return applicationStore.isSidebarOpen;
+	},
+	set(value: boolean) {
+		applicationStore.setIsSidebarOpen(value);
+	},
 });
 </script>

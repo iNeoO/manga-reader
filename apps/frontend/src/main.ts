@@ -1,17 +1,17 @@
-import Cookies from "js-cookie";
 import { createApp } from "vue";
 
 import App from "./App.vue";
+import { getAuthToken } from "./lib/auth";
 import router from "./router";
 import { pinia } from "./stores";
-import { tokenCookieName, useAuthStore } from "./stores/authStore";
+import { useAuthStore } from "./stores/authStore";
 import { useUserStore } from "./stores/userStore";
 
 const bootstrapAuth = async () => {
 	const authStore = useAuthStore(pinia);
 	const userStore = useUserStore(pinia);
 
-	if (!Cookies.get(tokenCookieName)) {
+	if (!getAuthToken()) {
 		authStore.setIsLogged(false);
 		return;
 	}

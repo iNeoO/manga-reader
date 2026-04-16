@@ -1,0 +1,21 @@
+{
+	"name": "@manga-reader/scripts",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"create-user": "node --experimental-strip-types src/create-user.ts",
+		"delete-manga": "node --experimental-strip-types src/delete-manga.ts",
+		"list-mangas": "node --experimental-strip-types src/list-mangas.ts",
+		"upload-manga-dir": "node --experimental-strip-types src/upload-manga-dir.ts"
+	},
+	"dependencies": {
+		"@manga-reader/db": "workspace:*",
+		"argon2": "^0.44.0",
+		"minio": "^8.0.6"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"typescript": "catalog:"
+	}
+}

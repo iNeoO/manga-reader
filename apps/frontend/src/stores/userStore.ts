@@ -1,6 +1,6 @@
-import got from "got";
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { api } from "@/lib/api";
 
 export type User = {
 	id: string;
@@ -17,7 +17,7 @@ export const useUserStore = defineStore("user", () => {
 	async function getUser() {
 		isUserLoading.value = true;
 		try {
-			const data = await got.get("api/user").json<User>();
+			const data = await api.get("api/user").json<User>();
 			user.value = data;
 			return data;
 		} finally {

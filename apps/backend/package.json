@@ -20,17 +20,24 @@
 		"test:e2e": "jest --config ./test/jest-e2e.json"
 	},
 	"dependencies": {
-		"@manga-reader/db": "workspace:*",
 		"@fastify/compress": "^8.3.1",
 		"@fastify/cookie": "^11.0.2",
+		"@fastify/multipart": "^9.2.1",
+		"@manga-reader/db": "workspace:*",
 		"@nestjs/common": "^11.0.1",
 		"@nestjs/core": "^11.0.1",
+		"@nestjs/jwt": "^11.0.2",
 		"@nestjs/platform-express": "^11.0.1",
 		"@nestjs/platform-fastify": "^11.1.17",
+		"argon2": "^0.44.0",
 		"class-transformer": "^0.5.1",
 		"class-validator": "^0.15.1",
+		"minio": "^8.0.6",
 		"reflect-metadata": "^0.2.2",
-		"rxjs": "^7.8.1"
+		"rxjs": "^7.8.1",
+		"sharp": "^0.34.5",
+		"unzipper": "^0.12.3",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

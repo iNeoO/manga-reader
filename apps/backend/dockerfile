@@ -1,0 +1,49 @@
+ARG NODE_VERSION=24-alpine
+ARG PNPM_VERSION=10.32.1
+
+FROM node:${NODE_VERSION} AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+RUN npm install --global corepack@latest && \
+    corepack enable && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate
+
+FROM base AS deps
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY packages/db/package.json packages/db/package.json
+
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS builder
+
+ENV NODE_ENV=development
+
+COPY apps/backend apps/backend
+COPY packages/db packages/db
+
+RUN pnpm --filter @manga-reader/db generate
+RUN pnpm --filter @manga-reader/db build
+RUN pnpm --filter @manga-reader/backend build
+
+FROM base AS server
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/apps/backend apps/backend
+COPY --from=builder /app/packages/db packages/db
+
+EXPOSE 4030
+
+CMD ["node", "apps/backend/dist/main.js"]

@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: manga-reader-postgres-prod
+    environment:
+      POSTGRES_DB: ${PG_MANGA_READER_DB}
+      POSTGRES_USER: ${PG_MANGA_READER_USER}
+      POSTGRES_PASSWORD: ${PG_MANGA_READER_PASSWORD}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${PG_MANGA_READER_USER} -d ${PG_MANGA_READER_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - manga-reader-prod-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: manga-reader-minio-prod
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - manga-reader-prod-network
+
+  db:
+    container_name: manga-reader-db-prod
+    env_file:
+      - ./.env.docker
+    build:
+      context: .
+      dockerfile: ./packages/db/dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - manga-reader-prod-network
+
+  backend:
+    container_name: manga-reader-backend-prod
+    env_file:
+      - ./.env.docker
+    build:
+      context: .
+      dockerfile: ./apps/backend/dockerfile
+    ports:
+      - "127.0.0.1:4030:4030"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      db:
+        condition: service_completed_successfully
+    networks:
+      - manga-reader-prod-network
+
+  frontend:
+    container_name: manga-reader-frontend-prod
+    env_file:
+      - ./.env.docker
+    build:
+      context: .
+      dockerfile: ./apps/frontend/dockerfile
+    ports:
+      - "127.0.0.1:3030:8080"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - manga-reader-prod-network
+
+volumes:
+  pgdata:
+  minio-data:
+
+networks:
+  manga-reader-prod-network:
+    driver: bridge

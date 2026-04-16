@@ -41,8 +41,8 @@
         </span>
       </router-link>
       <router-link
-        v-if="mangaRedirection || chapterRedirection"
-        :to="chapterRedirection || mangaRedirection"
+        v-if="mobileRedirection"
+        :to="mobileRedirection"
         class="text-gray-700 dark:text-gray-300 mr-4
           hover:text-indigo-500
           dark:hover:text-indigo-500
@@ -106,136 +106,119 @@
   </header>
 </template>
 
-<script lang="ts">
-import Cookies from "js-cookie";
-import {
-	type ComputedRef,
-	computed,
-	defineComponent,
-	onBeforeUnmount,
-	ref,
-} from "vue";
-
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useApplicationStore } from "@/stores/applicationStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useMangaStore } from "@/stores/mangaStore";
+import { useUserStore } from "@/stores/userStore";
 
-import { useStore } from "@/store/index";
-import {
-	ApplicationMutationTypes,
-	AuthMutationTypes,
-} from "@/store/types/mutation.type";
+type Redirection = {
+	name: string;
+	params: {
+		[key: string]: string;
+	};
+};
 
-export default defineComponent({
-	name: "loggedHeaderBar",
-	setup() {
-		const store = useStore();
-		const router = useRouter();
-		const route = useRoute();
+const applicationStore = useApplicationStore();
+const userStore = useUserStore();
+const mangaStore = useMangaStore();
+const authStore = useAuthStore();
+const router = useRouter();
+const route = useRoute();
 
-		const isSidebarOpen = computed({
-			get(): boolean {
-				return store.getters["applicationStore/isSidebarOpen"];
-			},
-			set(value: boolean) {
-				store.commit(ApplicationMutationTypes.SET_IS_SIDEBAR_OPEN, value);
-			},
-		});
-
-		const isOffline = ref(false);
-
-		const isDarkMode = computed({
-			get(): boolean {
-				return store.getters["applicationStore/isDarkMode"];
-			},
-			set(value: boolean) {
-				store.commit(ApplicationMutationTypes.SET_IS_DARK_MODE, value);
-			},
-		});
-
-		const name = computed(() => store.getters["userStore/user"]?.username);
-
-		const mangaName = computed(() => store.getters["mangaStore/manga"]?.name);
-
-		const chapterName = computed(
-			() => store.getters["mangaStore/chapter"]?.name,
-		);
-
-		const usermenu = ref();
-
-		const isDropdownOpen = ref(false);
-
-		const openDropdown = () => {
-			isDropdownOpen.value = true;
-			const eventClick = (event: Event) => {
-				if (!usermenu.value.contains(event.target)) {
-					isDropdownOpen.value = false;
-				}
-				document.removeEventListener("click", eventClick);
-			};
-			document.addEventListener("click", eventClick);
-		};
-
-		const logout = () => {
-			store.commit(AuthMutationTypes.SET_IS_LOGGED, false);
-			Cookies.remove(process.env.VUE_APP_COOKIE_TOKEN_NAME);
-			router.push({ name: "login" });
-		};
-
-		type Redirection = {
-			name: string;
-			params: {
-				[key: string]: string;
-			};
-		};
-
-		const mangaRedirection: ComputedRef<Redirection | null> = computed(() => {
-			if (route.params.chapterNumber) {
-				return {
-					name: "manga",
-					params: { mangaName: route.params.mangaName as string },
-				};
-			}
-			return null;
-		});
-
-		const chapterRedirection: ComputedRef<Redirection | null> = computed(() => {
-			if (route.params.pageNumber) {
-				return {
-					name: "chapter",
-					params: {
-						chapterNumber: route.params.chapterNumber as string,
-						mangaName: route.params.mangaName as string,
-					},
-				};
-			}
-			return null;
-		});
-
-		const updateOnlineStatus = () => {
-			isOffline.value = !navigator.onLine;
-		};
-
-		window.addEventListener("online", updateOnlineStatus);
-		window.addEventListener("offline", updateOnlineStatus);
-
-		onBeforeUnmount(() => {
-			window.removeEventListener("online", updateOnlineStatus);
-			window.removeEventListener("offline", updateOnlineStatus);
-		});
-
-		return {
-			isOffline,
-			isSidebarOpen,
-			mangaRedirection,
-			chapterRedirection,
-			mangaName,
-			chapterName,
-			isDarkMode,
-			name,
-			usermenu,
-			isDropdownOpen,
-			openDropdown,
-			logout,
-		};
+const isSidebarOpen = computed({
+	get(): boolean {
+		return applicationStore.isSidebarOpen;
 	},
+	set(value: boolean) {
+		applicationStore.setIsSidebarOpen(value);
+	},
+});
+
+const isOffline = ref(false);
+
+const isDarkMode = computed({
+	get(): boolean {
+		return applicationStore.isDarkMode;
+	},
+	set(value: boolean) {
+		applicationStore.setIsDarkMode(value);
+	},
+});
+
+const name = computed(() => userStore.user?.username);
+const mangaName = computed(() => mangaStore.manga?.name);
+const chapterName = computed(() => mangaStore.chapter?.name);
+
+const usermenu = ref<HTMLButtonElement | null>(null);
+const isDropdownOpen = ref(false);
+let documentClickHandler: ((event: Event) => void) | null = null;
+
+const openDropdown = () => {
+	isDropdownOpen.value = true;
+	if (documentClickHandler) {
+		document.removeEventListener("click", documentClickHandler);
+		documentClickHandler = null;
+	}
+	documentClickHandler = (event: Event) => {
+		const target = event.target as Node | null;
+		if (!usermenu.value?.contains(target)) {
+			isDropdownOpen.value = false;
+		}
+		if (documentClickHandler) {
+			document.removeEventListener("click", documentClickHandler);
+			documentClickHandler = null;
+		}
+	};
+	document.addEventListener("click", documentClickHandler);
+};
+
+const logout = () => {
+	authStore.logout();
+	router.push({ name: "login" });
+};
+
+const mangaRedirection = computed<Redirection | null>(() => {
+	if (route.params.chapterNumber) {
+		return {
+			name: "manga",
+			params: { mangaName: route.params.mangaName as string },
+		};
+	}
+	return null;
+});
+
+const chapterRedirection = computed<Redirection | null>(() => {
+	if (route.params.pageNumber) {
+		return {
+			name: "chapter",
+			params: {
+				chapterNumber: route.params.chapterNumber as string,
+				mangaName: route.params.mangaName as string,
+			},
+		};
+	}
+	return null;
+});
+
+const mobileRedirection = computed(
+	() => chapterRedirection.value ?? mangaRedirection.value,
+);
+
+const updateOnlineStatus = () => {
+	isOffline.value = !navigator.onLine;
+};
+
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+
+onBeforeUnmount(() => {
+	window.removeEventListener("online", updateOnlineStatus);
+	window.removeEventListener("offline", updateOnlineStatus);
+	if (documentClickHandler) {
+		document.removeEventListener("click", documentClickHandler);
+	}
 });
 </script>
