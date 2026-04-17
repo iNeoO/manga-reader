@@ -2,6 +2,16 @@
 	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
 	"overrides": [
 		{
+			"includes": ["./apps/backend/src/**/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useImportType": "off"
+					}
+				}
+			}
+		},
+		{
 			"includes": ["**/*.vue"],
 			"linter": {
 				"rules": {

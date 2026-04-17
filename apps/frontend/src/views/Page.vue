@@ -108,11 +108,13 @@ const nbPages = computed(() => chapter.value?.pages?.length ?? 10);
 const page = computed(() => chapter.value?.pages?.[pageIndex.value]);
 const pageId = computed(() => page.value?.id);
 const previousPage = computed(() =>
-	pageIndex.value > 0 ? chapter.value?.pages?.[pageIndex.value - 1] ?? null : null,
+	pageIndex.value > 0
+		? (chapter.value?.pages?.[pageIndex.value - 1] ?? null)
+		: null,
 );
 const nextPage = computed(() =>
 	pageIndex.value < (chapter.value?.pages?.length ?? 0) - 1
-		? chapter.value?.pages?.[pageIndex.value + 1] ?? null
+		? (chapter.value?.pages?.[pageIndex.value + 1] ?? null)
 		: null,
 );
 const isLastChapter = computed(
@@ -250,7 +252,9 @@ const resetStates = () => {
 };
 
 const successHandler = () => {
-	const pageElement = document.getElementById("page") as HTMLImageElement | null;
+	const pageElement = document.getElementById(
+		"page",
+	) as HTMLImageElement | null;
 	if (pageElement) {
 		isDoublePage.value =
 			pageElement.naturalWidth > pageElement.naturalHeight * 1.15;

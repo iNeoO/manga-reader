@@ -7,7 +7,7 @@ export class MangasService {
 	constructor(private prisma: PrismaService) {}
 
 	async getMangas(): Promise<Manga[]> {
-		return await this.prisma.client.manga.findMany({
+		return await this.prisma.manga.findMany({
 			include: {
 				_count: {
 					select: {
@@ -25,7 +25,7 @@ export class MangasService {
 		mangaWhereUniqueInput: Prisma.MangaWhereUniqueInput,
 		userId: string,
 	) {
-		const manga = await this.prisma.client.manga.findUnique({
+		const manga = await this.prisma.manga.findUnique({
 			where: mangaWhereUniqueInput,
 			select: {
 				id: true,

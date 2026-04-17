@@ -11,7 +11,7 @@ import {
 import { AuthGuard } from "../auth/auth.guard";
 
 import { ChaptersService } from "../chapters/chapters.service";
-import type { CreateChapterReadDto } from "./chaptersRead.dto";
+import { CreateChapterReadDto } from "./chaptersRead.dto";
 import { ChaptersReadService } from "./chaptersRead.service";
 
 @Controller("chapters-read")

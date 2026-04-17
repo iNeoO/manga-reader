@@ -15,7 +15,7 @@ export class PagesService {
 	async getPage(
 		pageWhereUniqueInput: Prisma.PageWhereUniqueInput,
 	): Promise<Page> {
-		const page = await this.prisma.client.page.findUnique({
+		const page = await this.prisma.page.findUnique({
 			where: pageWhereUniqueInput,
 		});
 
@@ -28,7 +28,7 @@ export class PagesService {
 	async getPageStoragePayload(
 		pageWhereUniqueInput: Prisma.PageWhereUniqueInput,
 	): Promise<PageStoragePayload> {
-		const page = await this.prisma.client.page.findUnique({
+		const page = await this.prisma.page.findUnique({
 			where: pageWhereUniqueInput,
 			include: {
 				chapter: {

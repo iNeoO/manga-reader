@@ -7,7 +7,7 @@ export class ChaptersReadService {
 	constructor(private prisma: PrismaService) {}
 
 	async getAllChaptersRead(userId: string) {
-		const chaptersRead = await this.prisma.client.chapterRead.findMany({
+		const chaptersRead = await this.prisma.chapterRead.findMany({
 			where: {
 				userId,
 			},
@@ -64,7 +64,7 @@ export class ChaptersReadService {
 		isRead: boolean,
 	) {
 		try {
-			const chapterRead = await this.prisma.client.chapterRead.upsert({
+			const chapterRead = await this.prisma.chapterRead.upsert({
 				where: {
 					userId_chapterId: {
 						userId,
@@ -86,7 +86,7 @@ export class ChaptersReadService {
 			return chapterRead;
 		} catch (error) {
 			if (error instanceof Prisma.PrismaClientKnownRequestError) {
-				return this.prisma.client.chapterRead.findUnique({
+				return this.prisma.chapterRead.findUnique({
 					where: {
 						userId_chapterId: {
 							userId,
@@ -100,7 +100,7 @@ export class ChaptersReadService {
 	}
 	async deleteChapterRead(chapterId: string, userId: string) {
 		try {
-			const result = await this.prisma.client.chapterRead.delete({
+			const result = await this.prisma.chapterRead.delete({
 				where: {
 					userId_chapterId: {
 						userId,

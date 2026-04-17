@@ -20,7 +20,7 @@ const isNotLogged = async () => {
 
 const isLogged = async () => {
 	const authStore = useAuthStore();
-	if (!authStore.isLogged) {
+	if (authStore.isLogged) {
 		return true;
 	}
 	return { name: "login" };

@@ -10,7 +10,7 @@ export class ChaptersService {
 		userId: string,
 		chapterWhereUniqueInput: Prisma.ChapterWhereUniqueInput,
 	) {
-		const chapter = await this.prisma.client.chapter.findUnique({
+		const chapter = await this.prisma.chapter.findUnique({
 			where: chapterWhereUniqueInput,
 			select: {
 				id: true,

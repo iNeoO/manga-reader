@@ -315,7 +315,7 @@ export class MangaImportService {
 	}
 
 	private async ensureNoConflicts(manifest: MangaManifest) {
-		const existingManga = await this.prisma.client.manga.findUnique({
+		const existingManga = await this.prisma.manga.findUnique({
 			where: {
 				name: manifest.name,
 			},
@@ -327,7 +327,7 @@ export class MangaImportService {
 	}
 
 	private async createRecords(manifest: MangaManifest) {
-		return this.prisma.client.$transaction(async (tx) => {
+		return this.prisma.$transaction(async (tx) => {
 			const manga = await tx.manga.create({
 				data: {
 					name: manifest.name,
@@ -417,7 +417,7 @@ export class MangaImportService {
 	}
 
 	private async cleanupDatabase(mangaId: string) {
-		await this.prisma.client.$transaction(async (tx) => {
+		await this.prisma.$transaction(async (tx) => {
 			const chapters = await tx.chapter.findMany({
 				where: {
 					mangaId,

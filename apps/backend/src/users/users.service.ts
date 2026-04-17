@@ -1,4 +1,4 @@
-import type { Prisma } from "@manga-reader/db";
+import type { Prisma, User } from "@manga-reader/db";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "..//services/prisma.service";
 
@@ -7,7 +7,7 @@ export class UsersService {
 	constructor(private prisma: PrismaService) {}
 
 	getUsers() {
-		return this.prisma.client.user.findMany({
+		return this.prisma.user.findMany({
 			select: {
 				id: true,
 				email: true,
@@ -19,10 +19,15 @@ export class UsersService {
 	}
 
 	async getUser(userWhereUniqueInput: Prisma.UserWhereUniqueInput) {
-		const user = await this.prisma.client.user.findUnique({
+		return this.prisma.user.findUnique({
 			where: userWhereUniqueInput,
 		});
+	}
 
-		return user;
+	getUserByEmail(email: string): Promise<User | null> {
+		console.log(email);
+		return this.prisma.user.findUnique({
+			where: { email },
+		});
 	}
 }

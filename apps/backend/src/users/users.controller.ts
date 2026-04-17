@@ -15,6 +15,6 @@ export class UserController {
 	@UseGuards(AuthGuard)
 	@Get()
 	findOne(@Request() req) {
-		return this.userService.getUser({ id: req.user.id });
+		return this.userService.getUser({ id: req.user.userId });
 	}
 }

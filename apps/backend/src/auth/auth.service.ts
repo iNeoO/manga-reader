@@ -11,13 +11,20 @@ export class AuthService {
 	) {}
 
 	async signIn(email: string, pass: string) {
-		const hash = await argon2.hash(pass);
-		const user = await this.usersService.getUser({ email, password: hash });
+		const user = await this.usersService.getUserByEmail(email);
+		console.log(user);
+		console.log('user');
 		if (!user) {
 			throw new UnauthorizedException();
 		}
 
-		const payload = { sub: user.id, username: user.username };
+		const isPasswordValid = await argon2.verify(user.password, pass);
+		console.log(isPasswordValid);
+		if (!isPasswordValid) {
+			throw new UnauthorizedException();
+		}
+
+		const payload = { sub: user.id, userId: user.id, username: user.username };
 		return {
 			access_token: await this.jwtService.signAsync(payload),
 		};

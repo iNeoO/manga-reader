@@ -36,34 +36,23 @@
 </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-import { useRoute } from 'vue-router';
+<script lang="ts" setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import { useApplicationStore } from "@/stores/applicationStore";
 
-import { useStore } from '@/store/index';
-import { ApplicationMutationTypes } from '@/store/types/mutation.type';
+const applicationStore = useApplicationStore();
+const route = useRoute();
 
-export default defineComponent({
-  name: 'loggedSidebar',
-  setup() {
-    const store = useStore();
-    const route = useRoute();
-
-    const isSidebarOpen = computed({
-      get() {
-        return store.getters['applicationStore/isSidebarOpen'];
-      },
-      set(value: boolean) {
-        store.commit(ApplicationMutationTypes.SET_IS_SIDEBAR_OPEN, value);
-      },
-    });
-
-    const isActive = (routeName: string[]):boolean => routeName.includes(route.name as string);
-
-    return {
-      isSidebarOpen,
-      isActive,
-    };
-  },
+const isSidebarOpen = computed({
+	get(): boolean {
+		return applicationStore.isSidebarOpen;
+	},
+	set(value: boolean) {
+		applicationStore.setIsSidebarOpen(value);
+	},
 });
+
+const isActive = (routeNames: string[]): boolean =>
+	routeNames.includes(route.name as string);
 </script>

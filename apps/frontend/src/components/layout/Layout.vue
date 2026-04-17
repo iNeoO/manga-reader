@@ -8,7 +8,6 @@
 import {
 	computed,
 	defineAsyncComponent,
-	defineComponent,
 	ref,
 	watch,
 } from "vue";
@@ -18,7 +17,10 @@ const componentName = ref("Blank");
 const componentLoader = ref(
 	computed(() => {
 		const name = componentName.value;
-		return defineAsyncComponent(() => import(`./${name}.vue`));
+		if (name === 'Logged') {
+			return defineAsyncComponent(() => import('./Logged.vue'));
+		}
+		return defineAsyncComponent(() => import('./NotLogged.vue'));
 	}),
 );
 const route = useRoute();

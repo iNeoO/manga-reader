@@ -24,8 +24,6 @@
 import { computed } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 
-import loadingImg from "@/assets/loading.png";
-
 const props = withDefaults(
 	defineProps<{
 		name: string;
@@ -38,6 +36,7 @@ const props = withDefaults(
 	},
 );
 
+const loadingImg = "/loading.png";
 const imgSrc = computed(() => `/api/pages/${props.imageId}/minified`);
 </script>
 

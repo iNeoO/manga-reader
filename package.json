@@ -13,6 +13,7 @@
 		"create:user": "dotenv -e .env -- pnpm --filter @manga-reader/scripts create-user",
 		"delete:manga": "dotenv -e .env -- pnpm --filter @manga-reader/scripts delete-manga",
 		"list:mangas": "dotenv -e .env -- pnpm --filter @manga-reader/scripts list-mangas",
+		"list:users": "dotenv -e .env -- pnpm --filter @manga-reader/scripts list-users",
 		"upload:manga-dir": "dotenv -e .env -- pnpm --filter @manga-reader/scripts upload-manga-dir",
 		"db:build": "dotenv -e .env -- pnpm --filter @manga-reader/db build",
 		"db:generate": "dotenv -e .env -- pnpm --filter @manga-reader/db generate",
