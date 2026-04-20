@@ -6,6 +6,7 @@ import {
 	HttpStatus,
 } from "@nestjs/common";
 import { BaseExceptionFilter, HttpAdapterHost } from "@nestjs/core";
+import { MetricsService } from "../metrics/metrics.service";
 import { AppLogger } from "./app-logger.service";
 import {
 	buildRequestLogContext,
@@ -19,6 +20,7 @@ export class HttpExceptionLoggingFilter
 {
 	constructor(
 		private readonly logger: AppLogger,
+		private readonly metricsService: MetricsService,
 		httpAdapterHost: HttpAdapterHost,
 	) {
 		super(httpAdapterHost.httpAdapter);
@@ -40,6 +42,12 @@ export class HttpExceptionLoggingFilter
 			),
 			...buildExceptionMetadata(exception),
 		};
+		this.metricsService.incrementHttpError({
+			exceptionName: metadata.exceptionName,
+			method: metadata.method,
+			route: metadata.route,
+			statusCode: metadata.statusCode,
+		});
 
 		if ((metadata.statusCode ?? 500) >= HttpStatus.INTERNAL_SERVER_ERROR) {
 			this.logger.error(
