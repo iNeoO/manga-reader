@@ -12,7 +12,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { env } from './env';
 import { AppLogger } from './logging/app-logger.service';
 
-const uploadMaxBytes = env.UPLOAD_MAX_BYTES ?? 4 * 1024 * 1024 * 1024;
+const uploadMaxBytes = env.UPLOAD_MAX_BYTES;
 const port = Number(process.env.PORT ?? 3000);
 const globalPrefix = 'api';
 
@@ -20,7 +20,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      bodyLimit: uploadMaxBytes,
+      ...(uploadMaxBytes !== undefined ? { bodyLimit: uploadMaxBytes } : {}),
       disableRequestLogging: true,
       logger: false,
       requestIdHeader: 'x-request-id',
@@ -36,7 +36,7 @@ async function bootstrap() {
   await app.register(compression);
   await app.register(multipart, {
     limits: {
-      fileSize: uploadMaxBytes,
+      ...(uploadMaxBytes !== undefined ? { fileSize: uploadMaxBytes } : {}),
       files: 1,
     },
   });

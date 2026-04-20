@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import type { MultipartFile } from "@fastify/multipart";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize, relative, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -18,13 +18,10 @@ import { S3Service } from "../s3/s3.service";
 type ZipEntry = {
 	path: string;
 	type: "File" | "Directory";
-	buffer?: Buffer;
 };
 
-type ZipFileEntry = ZipEntry & {
-	type: "File";
-	buffer: Buffer;
-};
+type ZipDirectory = Awaited<ReturnType<typeof unzipper.Open.file>>;
+type ZipDirectoryEntry = ZipDirectory["files"][number];
 
 type PageManifest = {
 	fileName: string;
@@ -48,6 +45,9 @@ type CreatedPage = {
 	objectKey: string;
 	filePath: string;
 };
+
+const IMPORT_TRANSACTION_TIMEOUT_MS = 120_000;
+const IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
 
 @Injectable()
 export class MangaImportService {
@@ -73,8 +73,7 @@ export class MangaImportService {
 		try {
 			const zipPath = join(tempDir, file.filename);
 			await this.writeMultipartFileToDisk(file, zipPath);
-			const entries = await this.readZipEntries(zipPath);
-			const manifest = await this.extractAndBuildManifest(entries, tempDir);
+			const manifest = await this.extractAndBuildManifest(zipPath, tempDir);
 			await this.ensureNoConflicts(manifest);
 
 			const created = await this.createRecords(manifest);
@@ -154,41 +153,35 @@ export class MangaImportService {
 		}
 	}
 
-	private async readZipEntries(zipPath: string): Promise<ZipEntry[]> {
-		try {
-			const directory = await unzipper.Open.file(zipPath);
-			return await Promise.all(
-				directory.files.map(async (entry) => {
-					if (entry.type === "Directory") {
-						return {
-							path: entry.path,
-							type: "Directory" as const,
-						};
-					}
-
-					return {
-						path: entry.path,
-						type: "File" as const,
-						buffer: await entry.buffer(),
-					};
-				}),
-			);
-		} catch {
-			throw new BadRequestException("Invalid ZIP archive.");
-		}
-	}
-
 	private async extractAndBuildManifest(
-		entries: ZipEntry[],
+		zipPath: string,
 		tempDir: string,
 	): Promise<MangaManifest> {
-		const normalizedEntries = entries.map((entry) => ({
-			...entry,
+		let directory: ZipDirectory;
+		try {
+			directory = await unzipper.Open.file(zipPath);
+		} catch (error) {
+			this.logger.warn(
+				"manga_import_zip_open_failed",
+				{
+					errorMessage: error instanceof Error ? error.message : String(error),
+					stack: error instanceof Error ? error.stack : undefined,
+					zipPath,
+				},
+				MangaImportService.name,
+			);
+			throw new BadRequestException("Invalid ZIP archive.");
+		}
+
+		const normalizedEntries = directory.files.map((entry: ZipDirectoryEntry) => ({
+			entry,
 			path: this.normalizeEntryPath(entry.path),
+			type: entry.type as ZipEntry["type"],
 		}));
 
 		const fileEntries = normalizedEntries.filter(
-			(entry): entry is ZipFileEntry => entry.type === "File",
+			(entry): entry is (typeof normalizedEntries)[number] & { type: "File" } =>
+				entry.type === "File",
 		);
 
 		if (fileEntries.length === 0) {
@@ -207,15 +200,17 @@ export class MangaImportService {
 			throw new BadRequestException("ZIP archive is empty.");
 		}
 
-		const rootNames = new Set(filteredEntries.map((entry) => entry.path.split("/")[0]));
+		const rootNames = new Set<string>(
+			filteredEntries.map((entry) => entry.path.split("/")[0]),
+		);
 		if (rootNames.size !== 1) {
 			throw new BadRequestException(
 				"ZIP archive must contain exactly one root folder.",
 			);
 		}
 
-		const mangaName = [...rootNames][0];
-		const declaredChapterNames = new Set(
+		const mangaName = Array.from(rootNames)[0];
+		const declaredChapterNames = new Set<string>(
 			filteredDirectories
 				.map((entry) => entry.path.split("/"))
 				.filter((segments) => segments.length === 2 && segments[0] === mangaName)
@@ -254,7 +249,21 @@ export class MangaImportService {
 
 			const destinationPath = this.resolveExtractionPath(tempDir, entry.path);
 			await mkdir(dirname(destinationPath), { recursive: true });
-			await writeFile(destinationPath, entry.buffer);
+			try {
+				await pipeline(entry.entry.stream(), createWriteStream(destinationPath));
+			} catch (error) {
+				this.logger.warn(
+					"manga_import_zip_extract_failed",
+					{
+						entryPath: entry.path,
+						errorMessage: error instanceof Error ? error.message : String(error),
+						stack: error instanceof Error ? error.stack : undefined,
+						zipPath,
+					},
+					MangaImportService.name,
+				);
+				throw new BadRequestException("Invalid ZIP archive.");
+			}
 			chapter.pages.push({
 				fileName,
 				filePath: destinationPath,
@@ -402,85 +411,91 @@ export class MangaImportService {
 	}
 
 	private async createRecords(manifest: MangaManifest) {
-		return this.prisma.$transaction(async (tx) => {
-			const manga = await tx.manga.create({
-				data: {
-					name: manifest.name,
-				},
-			});
-
-			const pages: CreatedPage[] = [];
-			let mangaCoverPageId: string | null = null;
-
-			for (const chapterManifest of manifest.chapters) {
-				const chapter = await tx.chapter.create({
+		return this.prisma.$transaction(
+			async (tx) => {
+				const manga = await tx.manga.create({
 					data: {
-						name: chapterManifest.name,
-						number: chapterManifest.number,
-						mangaId: manga.id,
+						name: manifest.name,
 					},
 				});
 
-				let chapterCoverPageId: string | null = null;
+				const pages: CreatedPage[] = [];
+				let mangaCoverPageId: string | null = null;
 
-				for (const pageManifest of chapterManifest.pages) {
-					const page = await tx.page.create({
+				for (const chapterManifest of manifest.chapters) {
+					const chapter = await tx.chapter.create({
 						data: {
-							name: pageManifest.fileName,
-							number: pageManifest.number,
-							chapterId: chapter.id,
-							path: `${manga.id}/pending`,
+							name: chapterManifest.name,
+							number: chapterManifest.number,
+							mangaId: manga.id,
 						},
 					});
 
-					const objectKey = `${manga.id}/${page.id}`;
-					const updatedPage = await tx.page.update({
+					let chapterCoverPageId: string | null = null;
+
+					for (const pageManifest of chapterManifest.pages) {
+						const page = await tx.page.create({
+							data: {
+								name: pageManifest.fileName,
+								number: pageManifest.number,
+								chapterId: chapter.id,
+								path: `${manga.id}/pending`,
+							},
+						});
+
+						const objectKey = `${manga.id}/${page.id}`;
+						const updatedPage = await tx.page.update({
+							where: {
+								id: page.id,
+							},
+							data: {
+								path: objectKey,
+							},
+						});
+
+						if (!chapterCoverPageId) {
+							chapterCoverPageId = updatedPage.id;
+						}
+						if (!mangaCoverPageId) {
+							mangaCoverPageId = updatedPage.id;
+						}
+
+						pages.push({
+							id: updatedPage.id,
+							objectKey,
+							filePath: pageManifest.filePath,
+						});
+					}
+
+					await tx.chapter.update({
 						where: {
-							id: page.id,
+							id: chapter.id,
 						},
 						data: {
-							path: objectKey,
+							coverPageId: chapterCoverPageId,
 						},
-					});
-
-					if (!chapterCoverPageId) {
-						chapterCoverPageId = updatedPage.id;
-					}
-					if (!mangaCoverPageId) {
-						mangaCoverPageId = updatedPage.id;
-					}
-
-					pages.push({
-						id: updatedPage.id,
-						objectKey,
-						filePath: pageManifest.filePath,
 					});
 				}
 
-				await tx.chapter.update({
+				await tx.manga.update({
 					where: {
-						id: chapter.id,
+						id: manga.id,
 					},
 					data: {
-						coverPageId: chapterCoverPageId,
+						coverPageId: mangaCoverPageId,
 					},
 				});
-			}
 
-			await tx.manga.update({
-				where: {
-					id: manga.id,
-				},
-				data: {
-					coverPageId: mangaCoverPageId,
-				},
-			});
-
-			return {
-				mangaId: manga.id,
-				pages,
-			};
-		});
+				return {
+					mangaId: manga.id,
+					pages,
+				};
+			},
+			{
+				maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS,
+				timeout: IMPORT_TRANSACTION_TIMEOUT_MS,
+			},
+		);
 	}
 
 	private async cleanupUploadedObjects(uploadedKeys: string[]) {
@@ -492,61 +507,67 @@ export class MangaImportService {
 	}
 
 	private async cleanupDatabase(mangaId: string) {
-		await this.prisma.$transaction(async (tx) => {
-			const chapters = await tx.chapter.findMany({
-				where: {
-					mangaId,
-				},
-				select: {
-					id: true,
-				},
-			});
+		await this.prisma.$transaction(
+			async (tx) => {
+				const chapters = await tx.chapter.findMany({
+					where: {
+						mangaId,
+					},
+					select: {
+						id: true,
+					},
+				});
 
-			const chapterIds = chapters.map((chapter) => chapter.id);
+				const chapterIds = chapters.map((chapter) => chapter.id);
 
-			if (chapterIds.length > 0) {
-				await tx.manga.updateMany({
+				if (chapterIds.length > 0) {
+					await tx.manga.updateMany({
+						where: {
+							id: mangaId,
+						},
+						data: {
+							coverPageId: null,
+						},
+					});
+
+					await tx.chapter.updateMany({
+						where: {
+							id: {
+								in: chapterIds,
+							},
+						},
+						data: {
+							coverPageId: null,
+						},
+					});
+
+					await tx.page.deleteMany({
+						where: {
+							chapterId: {
+								in: chapterIds,
+							},
+						},
+					});
+
+					await tx.chapter.deleteMany({
+						where: {
+							id: {
+								in: chapterIds,
+							},
+						},
+					});
+				}
+
+				await tx.manga.deleteMany({
 					where: {
 						id: mangaId,
 					},
-					data: {
-						coverPageId: null,
-					},
 				});
-
-				await tx.chapter.updateMany({
-					where: {
-						id: {
-							in: chapterIds,
-						},
-					},
-					data: {
-						coverPageId: null,
-					},
-				});
-
-				await tx.page.deleteMany({
-					where: {
-						chapterId: {
-							in: chapterIds,
-						},
-					},
-				});
-
-				await tx.chapter.deleteMany({
-					where: {
-						id: {
-							in: chapterIds,
-						},
-					},
-				});
-			}
-
-			await tx.manga.deleteMany({
-				where: {
-					id: mangaId,
-				},
-			});
-		});
+			},
+			{
+				maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS,
+				timeout: IMPORT_TRANSACTION_TIMEOUT_MS,
+			},
+		);
 	}
 }
