@@ -33,6 +33,7 @@ ENV PG_URL="${PG_URL}"
 
 COPY apps/backend apps/backend
 COPY packages/db packages/db
+COPY packages/scripts packages/scripts
 
 RUN pnpm --filter @manga-reader/db generate
 RUN pnpm --filter @manga-reader/db build
@@ -50,11 +51,13 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/scripts/package.json packages/scripts/package.json
 
 RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=builder /app/apps/backend apps/backend
 COPY --from=builder /app/packages/db packages/db
+COPY --from=builder /app/packages/scripts packages/scripts
 
 EXPOSE 4030
 
