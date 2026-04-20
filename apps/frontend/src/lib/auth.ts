@@ -6,6 +6,26 @@ export const tokenCookieName = env.VITE_COOKIE_TOKEN_NAME ?? "access_token";
 
 export const tokenCookieDuration = Number(env.VITE_COOKIE_TOKEN_DURATION ?? 1);
 
+const parseBoolean = (value: string | undefined) => {
+	if (value === undefined) {
+		return;
+	}
+
+	return value === "true";
+};
+
+const isHttps =
+	typeof window !== "undefined" && window.location.protocol === "https:";
+
+const tokenCookieSecure = parseBoolean(env.VITE_COOKIE_TOKEN_SECURE) ?? isHttps;
+const tokenCookieSameSite = env.VITE_COOKIE_TOKEN_SAME_SITE ?? "lax";
+
+const tokenCookieOptions = {
+	expires: tokenCookieDuration,
+	secure: tokenCookieSecure,
+	sameSite: tokenCookieSameSite as "lax" | "strict" | "none",
+};
+
 export const getAuthToken = () => {
 	const token = Cookies.get(tokenCookieName);
 	if (token) {
@@ -15,12 +35,9 @@ export const getAuthToken = () => {
 };
 
 export const setAuthToken = (token: string) => {
-	Cookies.set(tokenCookieName, token, {
-		expires: tokenCookieDuration,
-		secure: true,
-	});
+	Cookies.set(tokenCookieName, token, tokenCookieOptions);
 };
 
 export const clearAuthToken = () => {
-	Cookies.remove(tokenCookieName);
+	Cookies.remove(tokenCookieName, tokenCookieOptions);
 };

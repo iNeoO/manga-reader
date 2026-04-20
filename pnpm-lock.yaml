@@ -239,6 +239,9 @@ importers:
       '@prisma/client':
         specifier: ^7.3.0
         version: 7.6.0(prisma@7.6.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@6.0.2))(typescript@6.0.2)
+      '@prisma/client-runtime-utils':
+        specifier: ^7.6.0
+        version: 7.6.0
       dotenv:
         specifier: ^17.2.3
         version: 17.3.1
@@ -10360,7 +10363,7 @@ snapshots:
       '@vue/babel-plugin-jsx': 1.5.0(@babel/core@7.29.0)
       '@vue/compiler-dom': 3.6.0-beta.10
       kolorist: 1.8.0
-      magic-string: 0.30.17
+      magic-string: 0.30.21
       vite: 8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
     transitivePeerDependencies:
       - supports-color

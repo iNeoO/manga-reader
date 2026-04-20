@@ -39,6 +39,12 @@ RUN pnpm --filter @manga-reader/db generate
 RUN pnpm --filter @manga-reader/db build
 RUN pnpm --filter @manga-reader/backend build
 
+FROM deps AS prod-deps
+
+ENV CI=true
+
+RUN pnpm prune --prod
+
 FROM base AS server
 
 ARG PG_URL
@@ -53,7 +59,7 @@ COPY apps/backend/package.json apps/backend/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/scripts/package.json packages/scripts/package.json
 
-RUN pnpm install --prod --frozen-lockfile
+COPY --from=prod-deps /app/node_modules node_modules
 
 COPY --from=builder /app/apps/backend apps/backend
 COPY --from=builder /app/packages/db packages/db

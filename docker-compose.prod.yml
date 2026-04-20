@@ -54,6 +54,8 @@ services:
     container_name: manga-reader-backend-prod
     env_file:
       - ./.env.docker
+    environment:
+      PORT: ${PORT:-4030}
     build:
       context: .
       dockerfile: ./apps/backend/dockerfile
