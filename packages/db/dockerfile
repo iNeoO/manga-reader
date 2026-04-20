@@ -1,10 +1,14 @@
 ARG NODE_VERSION=24-alpine
 ARG PNPM_VERSION=10.32.1
+ARG PG_URL
 
 FROM node:${NODE_VERSION} AS base
 
+ARG PG_URL
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
+ENV PG_URL="${PG_URL}"
 
 RUN npm install --global corepack@latest && \
     corepack enable && \
@@ -13,6 +17,7 @@ RUN npm install --global corepack@latest && \
 WORKDIR /app
 
 ENV NODE_ENV=development
+ENV PG_URL="${PG_URL}"
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/db/package.json packages/db/package.json
@@ -21,4 +26,4 @@ COPY packages/db packages/db
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @manga-reader/db generate
 
-CMD ["pnpm", "--filter", "@manga-reader/db", "deploy"]
+CMD ["pnpm", "--filter", "@manga-reader/db", "run", "deploy"]

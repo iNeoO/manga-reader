@@ -1,10 +1,14 @@
 ARG NODE_VERSION=24-alpine
 ARG PNPM_VERSION=10.32.1
+ARG PG_URL
 
 FROM node:${NODE_VERSION} AS base
 
+ARG PG_URL
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
+ENV PG_URL="${PG_URL}"
 
 RUN npm install --global corepack@latest && \
     corepack enable && \
@@ -22,7 +26,10 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 
+ARG PG_URL
+
 ENV NODE_ENV=development
+ENV PG_URL="${PG_URL}"
 
 COPY apps/backend apps/backend
 COPY packages/db packages/db
@@ -33,14 +40,19 @@ RUN pnpm --filter @manga-reader/backend build
 
 FROM base AS server
 
+ARG PG_URL
+
 ENV NODE_ENV=production
+ENV PG_URL="${PG_URL}"
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./package.json
-COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY packages/db/package.json packages/db/package.json
+
+RUN pnpm install --prod --frozen-lockfile
+
 COPY --from=builder /app/apps/backend apps/backend
 COPY --from=builder /app/packages/db packages/db
 
