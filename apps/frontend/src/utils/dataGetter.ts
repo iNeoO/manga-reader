@@ -11,7 +11,9 @@ export const checkChapter = async (
 ) => {
 	const mangaStore = useMangaStore();
 	await checkManga(mangaName);
-	return mangaStore.getChapter(`${mangaName}/${chapterNumber}`);
+	return mangaStore.getChapter(
+		`${encodeURIComponent(mangaName)}/${chapterNumber}`,
+	);
 };
 
 export const checkPage = async (

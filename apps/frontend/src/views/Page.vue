@@ -13,7 +13,7 @@
           <span>Go To next chapter</span>
         </div>
         <span class="text-gray-700 dark:text-gray-300">
-          Nb Pages: {{ nbPages }}
+          Page: {{ currentPageNumber }} / {{ nbPages }}
         </span>
       </div>
       <button
@@ -30,11 +30,13 @@
       class="relative block w-full md:inline-block md:w-auto"
       :class="isDoublePage ? 'overflow-x-auto' : 'overflow-x-hidden md:overflow-visible'">
       <img
-        v-if="pageId"
+        v-if="pageSrc"
         id="page"
         v-loading-image="isLoading"
         :class="['image', { 'image-double': isDoublePage }]"
-        :src="`/api/pages/${pageId}`">
+        :src="pageSrc"
+        @load="successHandler"
+        @error="errorHandler">
       <button
         class="absolute inset-y-0 w-1/4 focus:outline-none"
         :disabled="!previousPage || isLoading"
@@ -78,6 +80,7 @@ import { useRouter } from "vue-router";
 import GoTo from "@/components/utils/GoTo.vue";
 import Pagination from "@/components/utils/Pagination.vue";
 import ReloadIcon from "@/components/utils/ReloadIcon.vue";
+import { getAuthToken } from "@/lib/auth";
 import { useMangaStore } from "@/stores/mangaStore";
 import { checkPage } from "@/utils/dataGetter";
 
@@ -93,6 +96,7 @@ const goToRef = ref<InstanceType<typeof GoTo> | null>(null);
 const isInited = ref(false);
 const isLoading = ref(false);
 const isDoublePage = ref(false);
+const pageSrc = ref<string | null>(null);
 
 const manga = computed(() => mangaStore.manga);
 const chapter = computed(() => mangaStore.chapter);
@@ -105,6 +109,7 @@ const pageIndex = computed(() => {
 });
 
 const nbPages = computed(() => chapter.value?.pages?.length ?? 10);
+const currentPageNumber = computed(() => page.value?.number ?? 0);
 const page = computed(() => chapter.value?.pages?.[pageIndex.value]);
 const pageId = computed(() => page.value?.id);
 const previousPage = computed(() =>
@@ -212,13 +217,56 @@ const updatePagination = async (index: number) => {
 	await updatePage(pageToGo.id, index);
 };
 
-const reloadImage = () => {
-	const pageImg = document.getElementById("page");
-	if (!pageImg) {
+const revokePageSrc = () => {
+	if (!pageSrc.value) {
 		return;
 	}
 
-	pageImg.setAttribute("src", `/api/pages/${pageId.value}?t=${Date.now()}`);
+	URL.revokeObjectURL(pageSrc.value);
+	pageSrc.value = null;
+};
+
+const loadPageImage = async (force = false) => {
+	if (!pageId.value) {
+		revokePageSrc();
+		return;
+	}
+
+	isLoading.value = true;
+	isDoublePage.value = false;
+
+	const token = getAuthToken();
+	const headers = new Headers();
+	if (token) {
+		headers.set("authorization", token);
+	}
+
+	const suffix = force ? `?t=${Date.now()}` : "";
+
+	try {
+		const response = await fetch(`/api/pages/${pageId.value}${suffix}`, {
+			headers,
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status} ${response.statusText}`);
+		}
+
+		const blob = await response.blob();
+		revokePageSrc();
+		pageSrc.value = URL.createObjectURL(blob);
+	} catch (_error) {
+		revokePageSrc();
+		isLoading.value = false;
+	}
+};
+
+const reloadImage = () => {
+	if (!pageId.value) {
+		return;
+	}
+
+	void loadPageImage(true);
 };
 
 const keyEventHandler = (event: KeyboardEvent) => {
@@ -268,7 +316,7 @@ const errorHandler = () => {
 };
 
 watch(pageId, () => {
-	isDoublePage.value = false;
+	void loadPageImage();
 });
 
 onMounted(async () => {
@@ -280,16 +328,12 @@ onMounted(async () => {
 	isInited.value = true;
 
 	document.addEventListener("keyup", keyEventHandler);
-	const pageElement = document.getElementById("page");
-	pageElement?.addEventListener("load", successHandler);
-	pageElement?.addEventListener("error", errorHandler);
+	void loadPageImage();
 });
 
 onBeforeUnmount(() => {
 	document.removeEventListener("keyup", keyEventHandler);
-	const pageElement = document.getElementById("page");
-	pageElement?.removeEventListener("load", successHandler);
-	pageElement?.removeEventListener("error", errorHandler);
+	revokePageSrc();
 });
 </script>
 

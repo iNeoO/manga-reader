@@ -67,9 +67,29 @@ const s3Client = new Client({
 	secretKey: S3_SECRET_KEY,
 });
 
-const isJpeg = (fileName: string): boolean => {
+const ensureBucketExists = async () => {
+	const bucketExists = await s3Client.bucketExists(S3_BUCKET);
+	if (!bucketExists) {
+		await s3Client.makeBucket(S3_BUCKET);
+	}
+};
+
+const isSupportedImage = (fileName: string): boolean => {
 	const lowerFileName = fileName.toLowerCase();
-	return lowerFileName.endsWith(".jpg") || lowerFileName.endsWith(".jpeg");
+	return (
+		lowerFileName.endsWith(".jpg") ||
+		lowerFileName.endsWith(".jpeg") ||
+		lowerFileName.endsWith(".png")
+	);
+};
+
+const getContentType = (fileName: string): string => {
+	const lowerFileName = fileName.toLowerCase();
+	if (lowerFileName.endsWith(".png")) {
+		return "image/png";
+	}
+
+	return "image/jpeg";
 };
 
 const extractChapterNumber = (chapterName: string): number => {
@@ -129,14 +149,18 @@ const buildManifest = async (directoryPath: string): Promise<MangaManifest> => {
 				.map((entry) => entry.name);
 
 			if (imageFiles.length === 0) {
-				console.error(`Chapter "${chapterName}" must contain at least one JPG image.`);
+				console.error(
+					`Chapter "${chapterName}" must contain at least one JPG or PNG image.`,
+				);
 				process.exit(1);
 			}
 
-			const invalidFiles = imageFiles.filter((fileName) => !isJpeg(fileName));
+			const invalidFiles = imageFiles.filter(
+				(fileName) => !isSupportedImage(fileName),
+			);
 			if (invalidFiles.length > 0) {
 				console.error(
-					`Chapter "${chapterName}" contains non-JPG files: ${invalidFiles.join(", ")}`,
+					`Chapter "${chapterName}" contains unsupported files: ${invalidFiles.join(", ")}`,
 				);
 				process.exit(1);
 			}
@@ -336,6 +360,7 @@ const cleanupDatabase = async (mangaId: string) => {
 
 try {
 	const manifest = await buildManifest(directoryArg);
+	await ensureBucketExists();
 
 	const existingManga = await prisma.manga.findUnique({
 		where: {
@@ -361,7 +386,7 @@ try {
 				page.objectKey,
 				body,
 				body.length,
-				{ "Content-Type": "image/jpeg" },
+				{ "Content-Type": getContentType(page.filePath) },
 			);
 			uploadedKeys.push(page.objectKey);
 		}

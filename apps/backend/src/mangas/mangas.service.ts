@@ -106,4 +106,8 @@ export class MangasService {
 
 		return mangaFormated;
 	}
+
+	async getMangaByName(name: string, userId: string) {
+		return this.getManga({ name }, userId);
+	}
 }

@@ -5,10 +5,13 @@ import {
 	InternalServerErrorException,
 } from "@nestjs/common";
 import type { MultipartFile } from "@fastify/multipart";
+import { createWriteStream } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize, relative, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
 import unzipper from "unzipper";
+import { AppLogger } from "../logging/app-logger.service";
 import { PrismaService } from "../services/prisma.service";
 import { S3Service } from "../s3/s3.service";
 
@@ -51,16 +54,26 @@ export class MangaImportService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly s3Service: S3Service,
+		private readonly logger: AppLogger,
 	) {}
 
 	async importZip(file: MultipartFile) {
+		this.logger.log(
+			"manga_import_started",
+			{
+				fileName: file.filename,
+				mimeType: file.mimetype,
+			},
+			MangaImportService.name,
+		);
 		this.validateFile(file);
 
 		const tempDir = await mkdtemp(join(tmpdir(), "manga-import-"));
 
 		try {
-			const zipBuffer = await file.toBuffer();
-			const entries = await this.readZipEntries(zipBuffer);
+			const zipPath = join(tempDir, file.filename);
+			await this.writeMultipartFileToDisk(file, zipPath);
+			const entries = await this.readZipEntries(zipPath);
 			const manifest = await this.extractAndBuildManifest(entries, tempDir);
 			await this.ensureNoConflicts(manifest);
 
@@ -75,16 +88,36 @@ export class MangaImportService {
 					await this.s3Service.uploadObject({
 						key: page.objectKey,
 						body,
-						contentType: "image/jpeg",
+						contentType: this.getContentType(page.filePath),
 					});
 					uploadedKeys.push(page.objectKey);
 				}
 			} catch (error) {
+				this.logger.error(
+					"manga_import_storage_failed",
+					{
+						errorMessage: error instanceof Error ? error.message : String(error),
+						mangaId: created.mangaId,
+						stack: error instanceof Error ? error.stack : undefined,
+						uploadedKeysCount: uploadedKeys.length,
+					},
+					MangaImportService.name,
+				);
 				await this.cleanupUploadedObjects(uploadedKeys);
 				await this.cleanupDatabase(created.mangaId);
 				throw new InternalServerErrorException("Manga import failed.");
 			}
 
+			this.logger.log(
+				"manga_import_succeeded",
+				{
+					chapterCount: manifest.chapters.length,
+					mangaId: created.mangaId,
+					mangaName: manifest.name,
+					pageCount: created.pages.length,
+				},
+				MangaImportService.name,
+			);
 			return {
 				mangaId: created.mangaId,
 				chapterCount: manifest.chapters.length,
@@ -98,13 +131,32 @@ export class MangaImportService {
 	private validateFile(file: MultipartFile) {
 		const fileName = file.filename.toLowerCase();
 		if (!fileName.endsWith(".zip")) {
+			this.logger.warn(
+				"manga_import_validation_failed",
+				{
+					fileName: file.filename,
+					reason: "invalid_extension",
+				},
+				MangaImportService.name,
+			);
 			throw new BadRequestException("Uploaded file must be a ZIP archive.");
 		}
 	}
 
-	private async readZipEntries(zipBuffer: Buffer): Promise<ZipEntry[]> {
+	private async writeMultipartFileToDisk(
+		file: MultipartFile,
+		destinationPath: string,
+	): Promise<void> {
 		try {
-			const directory = await unzipper.Open.buffer(zipBuffer);
+			await pipeline(file.file, createWriteStream(destinationPath));
+		} catch {
+			throw new BadRequestException("Failed to receive uploaded ZIP archive.");
+		}
+	}
+
+	private async readZipEntries(zipPath: string): Promise<ZipEntry[]> {
+		try {
+			const directory = await unzipper.Open.file(zipPath);
 			return await Promise.all(
 				directory.files.map(async (entry) => {
 					if (entry.type === "Directory") {
@@ -175,7 +227,7 @@ export class MangaImportService {
 			const segments = entry.path.split("/");
 			if (segments.length !== 3) {
 				throw new BadRequestException(
-					"ZIP structure must be manga/tome/image.jpg.",
+					"ZIP structure must be manga/tome/image.(jpg|jpeg|png).",
 				);
 			}
 
@@ -186,8 +238,8 @@ export class MangaImportService {
 				);
 			}
 
-			if (!this.isJpeg(fileName)) {
-				throw new BadRequestException("Only JPG/JPEG files are allowed.");
+			if (!this.isSupportedImage(fileName)) {
+				throw new BadRequestException("Only JPG, JPEG, and PNG files are allowed.");
 			}
 
 			let chapter = chaptersByName.get(chapterName);
@@ -219,7 +271,7 @@ export class MangaImportService {
 		for (const chapterName of declaredChapterNames) {
 			if (!chaptersByName.has(chapterName)) {
 				throw new BadRequestException(
-					`Chapter "${chapterName}" must contain at least one JPG image.`,
+					`Chapter "${chapterName}" must contain at least one JPG or PNG image.`,
 				);
 			}
 		}
@@ -238,7 +290,9 @@ export class MangaImportService {
 
 		for (const chapter of chapters) {
 			if (chapter.pages.length === 0) {
-				throw new BadRequestException("Each chapter must contain one JPG image.");
+				throw new BadRequestException(
+					"Each chapter must contain at least one JPG or PNG image.",
+				);
 			}
 		}
 
@@ -277,9 +331,22 @@ export class MangaImportService {
 		return destinationPath;
 	}
 
-	private isJpeg(fileName: string): boolean {
+	private isSupportedImage(fileName: string): boolean {
 		const lowerFileName = fileName.toLowerCase();
-		return lowerFileName.endsWith(".jpg") || lowerFileName.endsWith(".jpeg");
+		return (
+			lowerFileName.endsWith(".jpg") ||
+			lowerFileName.endsWith(".jpeg") ||
+			lowerFileName.endsWith(".png")
+		);
+	}
+
+	private getContentType(fileName: string): string {
+		const lowerFileName = fileName.toLowerCase();
+		if (lowerFileName.endsWith(".png")) {
+			return "image/png";
+		}
+
+		return "image/jpeg";
 	}
 
 	private extractChapterNumber(chapterName: string): number {
@@ -322,6 +389,14 @@ export class MangaImportService {
 		});
 
 		if (existingManga) {
+			this.logger.warn(
+				"manga_import_conflict",
+				{
+					existingMangaId: existingManga.id,
+					mangaName: manifest.name,
+				},
+				MangaImportService.name,
+			);
 			throw new ConflictException("Manga already exists.");
 		}
 	}

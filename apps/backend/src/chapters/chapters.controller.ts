@@ -7,8 +7,16 @@ export class ChaptersController {
 	constructor(private chaptersService: ChaptersService) {}
 
 	@UseGuards(AuthGuard)
-	@Get(":id")
-	findOne(@Param("id") id: string, @Request() req) {
-		return this.chaptersService.getChapter(req.user.userId, { id });
+	@Get(":mangaName/:chapterNumber")
+	findOne(
+		@Param("mangaName") mangaName: string,
+		@Param("chapterNumber") chapterNumber: string,
+		@Request() req,
+	) {
+		return this.chaptersService.getChapterByMangaNameAndNumber(
+			req.user.userId,
+			mangaName,
+			Number.parseInt(chapterNumber, 10),
+		);
 	}
 }

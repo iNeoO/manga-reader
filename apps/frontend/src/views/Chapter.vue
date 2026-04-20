@@ -52,20 +52,12 @@ const { items, observeMutations } = useLazyItemsObserver();
 onMounted(async () => {
 	await checkChapter(props.mangaName, Number.parseInt(props.chapterNumber, 10));
 
-	if (typeof chapter.value?.lastPageReadId === "string") {
-		const index = pages.value.findIndex(
-			(page) => page.id === chapter.value?.lastPageReadId,
-		);
-		const pageElement = document.querySelector(`#page-${index}`);
-		const main = document.querySelector("main");
-
-		if (main && pageElement) {
-			const { top } = pageElement.getBoundingClientRect();
-			main.scrollTo({
-				top,
-				behavior: "auto",
-			});
-		}
+	const main = document.querySelector("main");
+	if (main) {
+		main.scrollTo({
+			top: 0,
+			behavior: "auto",
+		});
 	}
 
 	observeMutations();

@@ -16,6 +16,8 @@ type MangaImportResult = {
 	pageCount: number;
 };
 
+const encodePathSegment = (value: string) => encodeURIComponent(value);
+
 export const useMangaStore = defineStore("manga", () => {
 	const mangas = ref<Manga[]>([]);
 	const isMangasLoading = ref(false);
@@ -63,7 +65,7 @@ export const useMangaStore = defineStore("manga", () => {
 		isMangaLoading.value = true;
 		try {
 			const data = await api
-				.get(`api/mangas/${payload}`)
+				.get(`api/mangas/${encodePathSegment(payload)}`)
 				.json<MangaWithChapters>();
 			manga.value = data;
 			return data;

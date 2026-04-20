@@ -6,25 +6,41 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import type { Request } from "express";
+import { AppLogger } from "../logging/app-logger.service";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-	constructor(private readonly jwtService: JwtService) {}
+	constructor(
+		private readonly jwtService: JwtService,
+		private readonly logger: AppLogger,
+	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
 		const request = context.switchToHttp().getRequest();
 		const token = this.extractTokenFromHeader(request);
 		if (!token) {
+			this.logger.warn(
+				"auth_token_missing",
+				{
+					method: request.method,
+					path: request.url,
+				},
+				AuthGuard.name,
+			);
 			throw new UnauthorizedException();
 		}
 		try {
-			// 💡 Here the JWT secret key that's used for verifying the payload
-			// is the key that was passed in the JwtModule
 			const payload = await this.jwtService.verifyAsync(token);
-			// 💡 We're assigning the payload to the request object here
-			// so that we can access it in our route handlers
 			request["user"] = payload;
 		} catch {
+			this.logger.warn(
+				"auth_token_invalid",
+				{
+					method: request.method,
+					path: request.url,
+				},
+				AuthGuard.name,
+			);
 			throw new UnauthorizedException();
 		}
 		return true;

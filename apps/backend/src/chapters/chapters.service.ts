@@ -69,4 +69,30 @@ export class ChaptersService {
 
 		return chapterFormated;
 	}
+
+	async getChapterByMangaNameAndNumber(
+		userId: string,
+		mangaName: string,
+		chapterNumber: number,
+	) {
+		const manga = await this.prisma.manga.findUnique({
+			where: {
+				name: mangaName,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!manga) {
+			throw new NotFoundException("Manga not found.");
+		}
+
+		return this.getChapter(userId, {
+			mangaId_number: {
+				mangaId: manga.id,
+				number: chapterNumber,
+			},
+		});
+	}
 }

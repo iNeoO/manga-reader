@@ -30,9 +30,9 @@ export class MangasController {
 	}
 
 	@UseGuards(AuthGuard)
-	@Get(":id")
-	findOne(@Param("id") id: string, @Request() req) {
-		return this.mangasService.getManga({ id }, req.user.userId);
+	@Get(":name")
+	findOne(@Param("name") name: string, @Request() req) {
+		return this.mangasService.getMangaByName(name, req.user.userId);
 	}
 
 	@UseGuards(AuthGuard)

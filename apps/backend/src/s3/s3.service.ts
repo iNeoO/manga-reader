@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { type BucketItemStat, Client } from "minio";
 import type { Readable } from "node:stream";
 import { env } from "../env";
+import { AppLogger } from "../logging/app-logger.service";
 
 type UploadObjectInput = {
 	key: string;
@@ -21,7 +22,9 @@ type ObjectBufferPayload = {
 };
 
 @Injectable()
-export class S3Service {
+export class S3Service implements OnModuleInit {
+	constructor(private readonly logger: AppLogger) {}
+
 	private readonly bucket = env.S3_BUCKET;
 
 	private readonly client = new Client({
@@ -32,16 +35,60 @@ export class S3Service {
 		secretKey: env.S3_SECRET_KEY,
 	});
 
-	async getObjectStream(key: string): Promise<ObjectStreamPayload> {
-		const [stream, stat] = await Promise.all([
-			this.client.getObject(this.bucket, key),
-			this.client.statObject(this.bucket, key),
-		]);
+	async onModuleInit(): Promise<void> {
+		try {
+			await this.ensureBucketExists();
+			this.logger.log(
+				"s3_bucket_ready",
+				{
+					bucket: this.bucket,
+				},
+				S3Service.name,
+			);
+		} catch (error) {
+			this.logger.error(
+				"s3_bucket_init_failed",
+				{
+					bucket: this.bucket,
+					errorMessage: error instanceof Error ? error.message : String(error),
+					stack: error instanceof Error ? error.stack : undefined,
+				},
+				S3Service.name,
+			);
+			throw error;
+		}
+	}
 
-		return {
-			stream,
-			contentType: this.getContentType(stat),
-		};
+	async ensureBucketExists(): Promise<void> {
+		const bucketExists = await this.client.bucketExists(this.bucket);
+		if (!bucketExists) {
+			await this.client.makeBucket(this.bucket);
+		}
+	}
+
+	async getObjectStream(key: string): Promise<ObjectStreamPayload> {
+		try {
+			const [stream, stat] = await Promise.all([
+				this.client.getObject(this.bucket, key),
+				this.client.statObject(this.bucket, key),
+			]);
+
+			return {
+				stream,
+				contentType: this.getContentType(stat),
+			};
+		} catch (error) {
+			this.logger.warn(
+				"s3_get_object_failed",
+				{
+					bucket: this.bucket,
+					errorMessage: error instanceof Error ? error.message : String(error),
+					key,
+				},
+				S3Service.name,
+			);
+			throw error;
+		}
 	}
 
 	async getObjectBuffer(key: string): Promise<ObjectBufferPayload> {
@@ -64,13 +111,31 @@ export class S3Service {
 		size,
 		contentType,
 	}: UploadObjectInput): Promise<void> {
-		const metadata = contentType ? { "Content-Type": contentType } : undefined;
-		const objectSize = Buffer.isBuffer(body) ? body.length : size;
+		try {
+			await this.ensureBucketExists();
+			const metadata = contentType ? { "Content-Type": contentType } : undefined;
+			const objectSize = Buffer.isBuffer(body) ? body.length : size;
 
-		await this.client.putObject(this.bucket, key, body, objectSize, metadata);
+			await this.client.putObject(this.bucket, key, body, objectSize, metadata);
+		} catch (error) {
+			this.logger.error(
+				"s3_upload_failed",
+				{
+					bucket: this.bucket,
+					contentType,
+					errorMessage: error instanceof Error ? error.message : String(error),
+					key,
+					size: Buffer.isBuffer(body) ? body.length : size,
+					stack: error instanceof Error ? error.stack : undefined,
+				},
+				S3Service.name,
+			);
+			throw error;
+		}
 	}
 
 	async createFolder(path: string): Promise<void> {
+		await this.ensureBucketExists();
 		const folderKey = path.endsWith("/") ? path : `${path}/`;
 		await this.client.putObject(this.bucket, folderKey, Buffer.alloc(0), 0);
 	}

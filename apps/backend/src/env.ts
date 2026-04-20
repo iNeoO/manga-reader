@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const envSchema = z.object({
 	JWT_SECRET: z.string(),
+	LOG_LEVEL: z.string().optional(),
 	PG_URL: z.string(),
+	UPLOAD_MAX_BYTES: z.coerce.number().int().positive().optional(),
 	VITE_COOKIE_TOKEN_DURATION: z.coerce.number().positive(),
 	S3_ENDPOINT: z.string(),
 	S3_PORT: z.coerce.number().int().positive(),
