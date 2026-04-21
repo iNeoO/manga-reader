@@ -19,13 +19,13 @@ export class AuthGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest();
 		const token = this.extractTokenFromHeader(request);
 		if (!token) {
-			this.logger.warn(
-				"auth_token_missing",
+			this.logger.pino.warn(
 				{
+					context: AuthGuard.name,
 					method: request.method,
 					path: request.url,
 				},
-				AuthGuard.name,
+				"auth_token_missing",
 			);
 			throw new UnauthorizedException();
 		}
@@ -33,13 +33,13 @@ export class AuthGuard implements CanActivate {
 			const payload = await this.jwtService.verifyAsync(token);
 			request["user"] = payload;
 		} catch {
-			this.logger.warn(
-				"auth_token_invalid",
+			this.logger.pino.warn(
 				{
+					context: AuthGuard.name,
 					method: request.method,
 					path: request.url,
 				},
-				AuthGuard.name,
+				"auth_token_invalid",
 			);
 			throw new UnauthorizedException();
 		}

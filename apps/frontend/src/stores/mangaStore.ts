@@ -16,6 +16,13 @@ type MangaImportResult = {
 	pageCount: number;
 };
 
+type DeleteMangaResult = {
+	id: string;
+	name: string;
+	chapterCount: number;
+	pageCount: number;
+};
+
 const encodePathSegment = (value: string) => encodeURIComponent(value);
 
 export const useMangaStore = defineStore("manga", () => {
@@ -24,6 +31,7 @@ export const useMangaStore = defineStore("manga", () => {
 	const isMangaImportLoading = ref(false);
 	const manga = ref<MangaWithChapters | null>(null);
 	const isMangaLoading = ref(false);
+	const isDeleteMangaLoading = ref(false);
 	const chapter = ref<ChapterFormated | null>(null);
 	const isChapterLoading = ref(false);
 	const chaptersRead = ref<ChapterReadFormated[]>([]);
@@ -71,6 +79,30 @@ export const useMangaStore = defineStore("manga", () => {
 			return data;
 		} finally {
 			isMangaLoading.value = false;
+		}
+	}
+
+	async function removeManga(payload: string) {
+		isDeleteMangaLoading.value = true;
+		try {
+			const data = await api
+				.delete(`api/mangas/${encodePathSegment(payload)}`)
+				.json<DeleteMangaResult>();
+
+			mangas.value = mangas.value.filter((entry) => entry.name !== payload);
+			if (manga.value?.name === payload) {
+				manga.value = null;
+			}
+			if (chapter.value?.mangaId === data.id) {
+				chapter.value = null;
+			}
+			chaptersRead.value = chaptersRead.value.filter(
+				(entry) => entry.manga.id !== data.id,
+			);
+
+			return data;
+		} finally {
+			isDeleteMangaLoading.value = false;
 		}
 	}
 
@@ -149,6 +181,7 @@ export const useMangaStore = defineStore("manga", () => {
 		isMangaImportLoading,
 		manga,
 		isMangaLoading,
+		isDeleteMangaLoading,
 		chapter,
 		isChapterLoading,
 		chaptersRead,
@@ -158,6 +191,7 @@ export const useMangaStore = defineStore("manga", () => {
 		getMangas,
 		importMangaZip,
 		getManga,
+		removeManga,
 		getChapter,
 		postChapterReading,
 		getChaptersRead,

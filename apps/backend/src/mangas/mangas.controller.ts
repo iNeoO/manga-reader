@@ -1,6 +1,7 @@
 import {
 	BadRequestException,
 	Controller,
+	Delete,
 	Get,
 	Param,
 	Post,
@@ -33,6 +34,12 @@ export class MangasController {
 	@Get(":name")
 	findOne(@Param("name") name: string, @Request() req) {
 		return this.mangasService.getMangaByName(name, req.user.userId);
+	}
+
+	@UseGuards(AuthGuard)
+	@Delete(":name")
+	remove(@Param("name") name: string) {
+		return this.mangasService.deleteMangaByName(name);
 	}
 
 	@UseGuards(AuthGuard)

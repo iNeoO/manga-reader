@@ -1,10 +1,18 @@
 <template>
   <div v-if="manga">
-    <div class="flex justify-between mb-4 hidden sm:block">
-      <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
-        {{ manga.name }}
-      </h2>
-      <p class="text-gray-400 font-mediun mt-auto">chapters: {{ manga.chapters.length }}</p>
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
+          {{ manga.name }}
+        </h2>
+        <p class="mt-2 text-gray-400">chapters: {{ manga.chapters.length }}</p>
+      </div>
+      <button
+        class="rounded-md bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+        :disabled="mangaStore.isDeleteMangaLoading"
+        @click="deleteCurrentManga">
+        {{ mangaStore.isDeleteMangaLoading ? "Deleting..." : "Delete manga" }}
+      </button>
     </div>
     <div ref="items">
       <item
@@ -29,6 +37,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
 
 import Item from "@/components/utils/Item.vue";
 import { useLazyItemsObserver } from "@/composables/useLazyItemsObserver";
@@ -40,9 +49,26 @@ const props = defineProps<{
 }>();
 
 const mangaStore = useMangaStore();
+const router = useRouter();
 const manga = computed(() => mangaStore.manga);
 const chapters = computed(() => manga.value?.chapters ?? []);
 const { items, observeMutations } = useLazyItemsObserver();
+
+const deleteCurrentManga = async () => {
+	if (!manga.value) {
+		return;
+	}
+
+	const shouldDelete = window.confirm(
+		`Delete "${manga.value.name}" and all its chapters, pages, and reading progress?`,
+	);
+	if (!shouldDelete) {
+		return;
+	}
+
+	await mangaStore.removeManga(manga.value.name);
+	await router.push({ name: "home" });
+};
 
 onMounted(async () => {
 	await checkManga(props.mangaName);

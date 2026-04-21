@@ -58,13 +58,13 @@ export class MangaImportService {
 	) {}
 
 	async importZip(file: MultipartFile) {
-		this.logger.log(
-			"manga_import_started",
+		this.logger.pino.info(
 			{
+				context: MangaImportService.name,
 				fileName: file.filename,
 				mimeType: file.mimetype,
 			},
-			MangaImportService.name,
+			"manga_import_started",
 		);
 		this.validateFile(file);
 
@@ -92,30 +92,30 @@ export class MangaImportService {
 					uploadedKeys.push(page.objectKey);
 				}
 			} catch (error) {
-				this.logger.error(
-					"manga_import_storage_failed",
+				this.logger.pino.error(
 					{
+						context: MangaImportService.name,
 						errorMessage: error instanceof Error ? error.message : String(error),
 						mangaId: created.mangaId,
 						stack: error instanceof Error ? error.stack : undefined,
 						uploadedKeysCount: uploadedKeys.length,
 					},
-					MangaImportService.name,
+					"manga_import_storage_failed",
 				);
 				await this.cleanupUploadedObjects(uploadedKeys);
 				await this.cleanupDatabase(created.mangaId);
 				throw new InternalServerErrorException("Manga import failed.");
 			}
 
-			this.logger.log(
-				"manga_import_succeeded",
+			this.logger.pino.info(
 				{
+					context: MangaImportService.name,
 					chapterCount: manifest.chapters.length,
 					mangaId: created.mangaId,
 					mangaName: manifest.name,
 					pageCount: created.pages.length,
 				},
-				MangaImportService.name,
+				"manga_import_succeeded",
 			);
 			return {
 				mangaId: created.mangaId,
@@ -130,13 +130,13 @@ export class MangaImportService {
 	private validateFile(file: MultipartFile) {
 		const fileName = file.filename.toLowerCase();
 		if (!fileName.endsWith(".zip")) {
-			this.logger.warn(
-				"manga_import_validation_failed",
+			this.logger.pino.warn(
 				{
+					context: MangaImportService.name,
 					fileName: file.filename,
 					reason: "invalid_extension",
 				},
-				MangaImportService.name,
+				"manga_import_validation_failed",
 			);
 			throw new BadRequestException("Uploaded file must be a ZIP archive.");
 		}
@@ -161,14 +161,14 @@ export class MangaImportService {
 		try {
 			directory = await unzipper.Open.file(zipPath);
 		} catch (error) {
-			this.logger.warn(
-				"manga_import_zip_open_failed",
+			this.logger.pino.warn(
 				{
+					context: MangaImportService.name,
 					errorMessage: error instanceof Error ? error.message : String(error),
 					stack: error instanceof Error ? error.stack : undefined,
 					zipPath,
 				},
-				MangaImportService.name,
+				"manga_import_zip_open_failed",
 			);
 			throw new BadRequestException("Invalid ZIP archive.");
 		}
@@ -234,7 +234,16 @@ export class MangaImportService {
 			}
 
 			if (!this.isSupportedImage(fileName)) {
-				throw new BadRequestException("Only JPG, JPEG, and PNG files are allowed.");
+				this.logger.pino.warn(
+					{
+						context: MangaImportService.name,
+						entryPath: entry.path,
+						fileName,
+						zipPath,
+					},
+					"manga_import_unsupported_file",
+				);
+				continue;
 			}
 
 			let chapter = chaptersByName.get(chapterName);
@@ -252,15 +261,15 @@ export class MangaImportService {
 			try {
 				await pipeline(entry.entry.stream(), createWriteStream(destinationPath));
 			} catch (error) {
-				this.logger.warn(
-					"manga_import_zip_extract_failed",
+				this.logger.pino.warn(
 					{
+						context: MangaImportService.name,
 						entryPath: entry.path,
 						errorMessage: error instanceof Error ? error.message : String(error),
 						stack: error instanceof Error ? error.stack : undefined,
 						zipPath,
 					},
-					MangaImportService.name,
+					"manga_import_zip_extract_failed",
 				);
 				throw new BadRequestException("Invalid ZIP archive.");
 			}
@@ -398,13 +407,13 @@ export class MangaImportService {
 		});
 
 		if (existingManga) {
-			this.logger.warn(
-				"manga_import_conflict",
+			this.logger.pino.warn(
 				{
+					context: MangaImportService.name,
 					existingMangaId: existingManga.id,
 					mangaName: manifest.name,
 				},
-				MangaImportService.name,
+				"manga_import_conflict",
 			);
 			throw new ConflictException("Manga already exists.");
 		}

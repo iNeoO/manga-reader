@@ -34,10 +34,12 @@ export class RequestLoggingInterceptor implements NestInterceptor {
 					Number(durationMs.toFixed(2)),
 				);
 				this.metricsService.observeHttpRequest(requestContext);
-				this.logger.log(
+				this.logger.pino.info(
+					{
+						context: RequestLoggingInterceptor.name,
+						...requestContext,
+					},
 					"request_completed",
-					requestContext,
-					RequestLoggingInterceptor.name,
 				);
 			}),
 		);

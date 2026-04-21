@@ -15,37 +15,37 @@ export class AuthService {
 	async signIn(email: string, pass: string) {
 		const user = await this.usersService.getUserByEmail(email);
 		if (!user) {
-			this.logger.warn(
-				"auth_login_failed",
+			this.logger.pino.warn(
 				{
+					context: AuthService.name,
 					reason: "user_not_found",
 				},
-				AuthService.name,
+				"auth_login_failed",
 			);
 			throw new UnauthorizedException();
 		}
 
 		const isPasswordValid = await argon2.verify(user.password, pass);
 		if (!isPasswordValid) {
-			this.logger.warn(
-				"auth_login_failed",
+			this.logger.pino.warn(
 				{
+					context: AuthService.name,
 					reason: "invalid_password",
 					userId: user.id,
 				},
-				AuthService.name,
+				"auth_login_failed",
 			);
 			throw new UnauthorizedException();
 		}
 
 		const payload = { sub: user.id, userId: user.id, username: user.username };
-		this.logger.log(
-			"auth_login_succeeded",
+		this.logger.pino.info(
 			{
+				context: AuthService.name,
 				userId: user.id,
 				username: user.username,
 			},
-			AuthService.name,
+			"auth_login_succeeded",
 		);
 		return {
 			access_token: await this.jwtService.signAsync(payload),

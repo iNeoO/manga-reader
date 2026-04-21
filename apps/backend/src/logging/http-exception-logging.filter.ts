@@ -50,19 +50,23 @@ export class HttpExceptionLoggingFilter
 		});
 
 		if ((metadata.statusCode ?? 500) >= HttpStatus.INTERNAL_SERVER_ERROR) {
-			this.logger.error(
+			this.logger.pino.error(
+				{
+					context: HttpExceptionLoggingFilter.name,
+					...metadata,
+				},
 				"request_failed",
-				metadata,
-				HttpExceptionLoggingFilter.name,
 			);
 			super.catch(exception, host);
 			return;
 		}
 
-		this.logger.warn(
+		this.logger.pino.warn(
+			{
+				context: HttpExceptionLoggingFilter.name,
+				...metadata,
+			},
 			"request_failed",
-			metadata,
-			HttpExceptionLoggingFilter.name,
 		);
 		super.catch(exception, host);
 	}
@@ -71,11 +75,13 @@ export class HttpExceptionLoggingFilter
 function buildExceptionMetadata(exception: unknown) {
 	if (exception instanceof HttpException) {
 		const statusCode = exception.getStatus();
+		const response = exception.getResponse();
 
 		return {
 			exceptionName: exception.name,
 			statusCode,
-			errorMessage: sanitizeExceptionMessage(exception.getResponse()),
+			errorMessage: sanitizeExceptionMessage(response),
+			...extractExceptionDetails(response),
 			stack:
 				statusCode >= HttpStatus.INTERNAL_SERVER_ERROR
 					? exception.stack
@@ -90,4 +96,15 @@ function buildExceptionMetadata(exception: unknown) {
 		errorMessage: sanitizeExceptionMessage(error.message),
 		stack: error.stack,
 	};
+}
+
+function extractExceptionDetails(response: unknown) {
+	if (!response || typeof response !== "object" || Array.isArray(response)) {
+		return {};
+	}
+
+	const { error: _error, message: _message, statusCode: _statusCode, ...rest } =
+		response as Record<string, unknown>;
+
+	return rest;
 }

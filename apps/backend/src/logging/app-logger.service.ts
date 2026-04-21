@@ -1,4 +1,5 @@
 import { Injectable, type LogLevel, LoggerService } from "@nestjs/common";
+import pino, { type LevelWithSilent, type Logger as PinoLogger } from "pino";
 
 type LogMetadata = Record<string, unknown>;
 
@@ -7,26 +8,35 @@ type ParsedLogArguments = {
 	metadata?: LogMetadata;
 };
 
-type StructuredLogEntry = LogMetadata & {
-	context?: string;
-	level: LogLevel;
-	message: string;
-	timestamp: string;
+const PINO_LEVELS: Record<LogLevel, LevelWithSilent> = {
+	fatal: "fatal",
+	error: "error",
+	warn: "warn",
+	log: "info",
+	debug: "debug",
+	verbose: "trace",
 };
-
-const LOG_LEVEL_ORDER: LogLevel[] = [
-	"fatal",
-	"error",
-	"warn",
-	"log",
-	"debug",
-	"verbose",
-];
 
 @Injectable()
 export class AppLogger implements LoggerService {
-	private readonly activeLevels = new Set(
-		resolveEnabledLevels(process.env.LOG_LEVEL ?? "log"),
+	readonly pino: PinoLogger = pino(
+		{
+			level: PINO_LEVELS[(process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? "log"] ?? "info",
+			base: undefined,
+			timestamp: pino.stdTimeFunctions.isoTime,
+			...(process.env.NODE_ENV !== "production"
+				? {
+						transport: {
+							target: "pino-pretty",
+							options: {
+								colorize: true,
+								ignore: "pid,hostname",
+								translateTime: "SYS:standard",
+							},
+						},
+					}
+				: {}),
+		},
 	);
 
 	log(message: unknown, ...optionalParams: unknown[]) {
@@ -54,36 +64,15 @@ export class AppLogger implements LoggerService {
 	}
 
 	private write(level: LogLevel, message: unknown, optionalParams: unknown[]) {
-		if (!this.activeLevels.has(level)) {
-			return;
-		}
-
 		const { context, metadata } = parseOptionalParams(optionalParams);
-		const payload: StructuredLogEntry = {
-			timestamp: new Date().toISOString(),
-			level,
-			message: stringifyMessage(message),
-			context,
-			...(metadata ?? {}),
-		};
-
-		const line = `${JSON.stringify(payload)}\n`;
-		if (level === "error" || level === "fatal" || level === "warn") {
-			process.stderr.write(line);
-			return;
-		}
-
-		process.stdout.write(line);
+		this.pino[PINO_LEVELS[level]](
+			{
+				context,
+				...(metadata ?? {}),
+			},
+			typeof message === "string" ? message : JSON.stringify(message),
+		);
 	}
-}
-
-function resolveEnabledLevels(rawLevel: string): LogLevel[] {
-	const normalizedLevel = rawLevel.toLowerCase() as LogLevel;
-	const thresholdIndex = LOG_LEVEL_ORDER.indexOf(normalizedLevel);
-	const effectiveIndex =
-		thresholdIndex === -1 ? LOG_LEVEL_ORDER.indexOf("log") : thresholdIndex;
-
-	return LOG_LEVEL_ORDER.slice(0, effectiveIndex + 1);
 }
 
 function parseOptionalParams(optionalParams: unknown[]): ParsedLogArguments {
@@ -101,12 +90,4 @@ function parseOptionalParams(optionalParams: unknown[]): ParsedLogArguments {
 	}
 
 	return parsed;
-}
-
-function stringifyMessage(message: unknown): string {
-	if (typeof message === "string") {
-		return message;
-	}
-
-	return JSON.stringify(message);
 }

@@ -50,14 +50,14 @@ async function bootstrap() {
     done();
   });
   await app.listen(port, '0.0.0.0');
-  logger.log(
-    'backend_started',
+  logger.pino.info(
     {
+      context: 'Bootstrap',
       globalPrefix,
       port,
       uploadMaxBytes,
     },
-    'Bootstrap',
+    'backend_started',
   );
 }
 bootstrap();

@@ -38,22 +38,22 @@ export class S3Service implements OnModuleInit {
 	async onModuleInit(): Promise<void> {
 		try {
 			await this.ensureBucketExists();
-			this.logger.log(
-				"s3_bucket_ready",
+			this.logger.pino.info(
 				{
+					context: S3Service.name,
 					bucket: this.bucket,
 				},
-				S3Service.name,
+				"s3_bucket_ready",
 			);
 		} catch (error) {
-			this.logger.error(
-				"s3_bucket_init_failed",
+			this.logger.pino.error(
 				{
+					context: S3Service.name,
 					bucket: this.bucket,
 					errorMessage: error instanceof Error ? error.message : String(error),
 					stack: error instanceof Error ? error.stack : undefined,
 				},
-				S3Service.name,
+				"s3_bucket_init_failed",
 			);
 			throw error;
 		}
@@ -78,14 +78,14 @@ export class S3Service implements OnModuleInit {
 				contentType: this.getContentType(stat),
 			};
 		} catch (error) {
-			this.logger.warn(
-				"s3_get_object_failed",
+			this.logger.pino.warn(
 				{
+					context: S3Service.name,
 					bucket: this.bucket,
 					errorMessage: error instanceof Error ? error.message : String(error),
 					key,
 				},
-				S3Service.name,
+				"s3_get_object_failed",
 			);
 			throw error;
 		}
@@ -118,9 +118,9 @@ export class S3Service implements OnModuleInit {
 
 			await this.client.putObject(this.bucket, key, body, objectSize, metadata);
 		} catch (error) {
-			this.logger.error(
-				"s3_upload_failed",
+			this.logger.pino.error(
 				{
+					context: S3Service.name,
 					bucket: this.bucket,
 					contentType,
 					errorMessage: error instanceof Error ? error.message : String(error),
@@ -128,7 +128,7 @@ export class S3Service implements OnModuleInit {
 					size: Buffer.isBuffer(body) ? body.length : size,
 					stack: error instanceof Error ? error.stack : undefined,
 				},
-				S3Service.name,
+				"s3_upload_failed",
 			);
 			throw error;
 		}
