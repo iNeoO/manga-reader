@@ -28,8 +28,8 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9002:9000"
+      - "9003:9001"
     volumes:
       - minio-data:/data
     networks:
@@ -72,6 +72,7 @@ services:
         condition: service_completed_successfully
     networks:
       - manga-reader-prod-network
+      - monitoring-shared
 
   frontend:
     container_name: manga-reader-frontend-prod
@@ -95,3 +96,5 @@ volumes:
 networks:
   manga-reader-prod-network:
     driver: bridge
+  monitoring-shared:
+    external: true
