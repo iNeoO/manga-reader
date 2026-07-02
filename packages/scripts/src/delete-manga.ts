@@ -15,6 +15,7 @@ if (!mangaId) {
 const {
 	S3_ENDPOINT,
 	S3_PORT,
+	S3_REGION,
 	S3_USE_SSL,
 	S3_ACCESS_KEY,
 	S3_SECRET_KEY,
@@ -24,6 +25,7 @@ const {
 if (
 	!S3_ENDPOINT ||
 	!S3_PORT ||
+	!S3_REGION ||
 	!S3_USE_SSL ||
 	!S3_ACCESS_KEY ||
 	!S3_SECRET_KEY ||
@@ -36,6 +38,7 @@ if (
 const s3Client = new Client({
 	endPoint: S3_ENDPOINT,
 	port: Number.parseInt(S3_PORT, 10),
+	region: S3_REGION,
 	useSSL: S3_USE_SSL === "true",
 	accessKey: S3_ACCESS_KEY,
 	secretKey: S3_SECRET_KEY,

@@ -5,7 +5,7 @@ Private manga reader built as a `pnpm` monorepo with:
 - a Vue 3 + Vite frontend
 - a NestJS + Fastify backend
 - PostgreSQL via Prisma
-- S3-compatible image storage via Garage (dev) / MinIO (prod)
+- S3-compatible image storage via Garage
 
 Public instance: [https://manga-reader.tuturu.io](https://manga-reader.tuturu.io)
 
@@ -27,7 +27,7 @@ packages/
 - chapter and page listing
 - reading resume and read-chapter tracking
 - manga import
-- page storage in S3-compatible storage (Garage / MinIO)
+- page storage in Garage
 - Prometheus endpoint at `/api/metrics`
 
 ## Requirements
@@ -138,10 +138,12 @@ Current constraints:
 The production Docker stack is defined in `docker-compose.prod.yml`:
 
 - `postgres`
-- `minio`
 - `db` to prepare Prisma
 - `backend` exposed locally on `127.0.0.1:4030`
 - `frontend` exposed locally on `127.0.0.1:3030`
+
+The backend joins the external `garage-network` and reaches the shared Garage
+instance at `garage-prod:3900`.
 
 The frontend image does not reverse proxy `/api`. In production, an external reverse proxy must sit in front of the containers and route:
 
@@ -150,7 +152,8 @@ The frontend image does not reverse proxy `/api`. In production, an external rev
 
 This is the expected setup for `manga-reader.tuturu.io`.
 
-The `.env.docker` file must provide at least the variables used by PostgreSQL, the backend, and MinIO, especially:
+The `.env.docker` file must provide at least the variables used by PostgreSQL,
+the backend, and Garage, especially:
 
 - `PG_MANGA_READER_DB`
 - `PG_MANGA_READER_USER`
@@ -161,6 +164,7 @@ The `.env.docker` file must provide at least the variables used by PostgreSQL, t
 - `VITE_COOKIE_TOKEN_DURATION`
 - `S3_ENDPOINT`
 - `S3_PORT`
+- `S3_REGION`
 - `S3_USE_SSL`
 - `S3_ACCESS_KEY`
 - `S3_SECRET_KEY`

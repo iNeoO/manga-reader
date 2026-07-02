@@ -8,6 +8,7 @@ const envSchema = z.object({
 	VITE_COOKIE_TOKEN_DURATION: z.coerce.number().positive(),
 	S3_ENDPOINT: z.string(),
 	S3_PORT: z.coerce.number().int().positive(),
+	S3_REGION: z.string(),
 	S3_USE_SSL: z
 		.string()
 		.transform((value) => value === "true"),

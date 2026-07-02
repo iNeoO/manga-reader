@@ -20,21 +20,6 @@ services:
     networks:
       - manga-reader-prod-network
 
-  minio:
-    image: minio/minio:latest
-    container_name: manga-reader-minio-prod
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
-    ports:
-      - "9002:9000"
-      - "9003:9001"
-    volumes:
-      - minio-data:/data
-    networks:
-      - manga-reader-prod-network
-
   db:
     container_name: manga-reader-db-prod
     env_file:
@@ -66,12 +51,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_started
       db:
         condition: service_completed_successfully
     networks:
       - manga-reader-prod-network
+      - garage-network
       - monitoring-shared
 
   frontend:
@@ -90,11 +74,12 @@ services:
 volumes:
   pgdata:
     name: manga-reader-pgdata-prod
-  minio-data:
-    name:  manga-reader-minio-data-prod
 
 networks:
   manga-reader-prod-network:
     driver: bridge
+  garage-network:
+    name: garage-network
+    external: true
   monitoring-shared:
     external: true
