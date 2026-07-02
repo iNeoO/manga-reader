@@ -5,7 +5,7 @@ Private manga reader built as a `pnpm` monorepo with:
 - a Vue 3 + Vite frontend
 - a NestJS + Fastify backend
 - PostgreSQL via Prisma
-- S3-compatible image storage via MinIO
+- S3-compatible image storage via Garage (dev) / MinIO (prod)
 
 Public instance: [https://manga-reader.tuturu.io](https://manga-reader.tuturu.io)
 
@@ -27,7 +27,7 @@ packages/
 - chapter and page listing
 - reading resume and read-chapter tracking
 - manga import
-- page storage in MinIO / S3
+- page storage in S3-compatible storage (Garage / MinIO)
 - Prometheus endpoint at `/api/metrics`
 
 ## Requirements
@@ -54,20 +54,28 @@ Notes:
 pnpm install
 ```
 
-2. Start PostgreSQL and MinIO:
+2. Start PostgreSQL and Garage:
 
 ```bash
 docker compose up -d
 ```
 
-3. Generate and prepare the database:
+3. Bootstrap the Garage bucket (only needed once, or after wiping the `garage-data` volume):
+
+```bash
+pnpm garage:init
+```
+
+This imports the `S3_ACCESS_KEY` / `S3_SECRET_KEY` from `.env` as a Garage key, creates the `S3_BUCKET`, and grants that key read/write access to it.
+
+4. Generate and prepare the database:
 
 ```bash
 pnpm db:generate
 pnpm db:migrate
 ```
 
-4. Start the application:
+5. Start the application:
 
 ```bash
 pnpm dev
@@ -77,8 +85,9 @@ Useful local URLs:
 
 - frontend : <http://localhost:5173>
 - backend : <http://localhost:3000/api>
-- MinIO API : <http://localhost:9000>
-- MinIO Console : <http://localhost:9001>
+- Garage S3 API : <http://localhost:3900>
+
+Garage has no admin web console; bucket/key management goes through the `garage` CLI inside the container (see `garage-init-dev.sh`).
 
 ## Useful scripts
 
@@ -98,6 +107,8 @@ pnpm list:users
 pnpm list:mangas
 pnpm delete:manga -- <manga-name>
 pnpm upload:manga-dir -- <directory>
+
+pnpm garage:init
 ```
 
 ## Import a manga
