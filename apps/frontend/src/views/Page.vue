@@ -26,7 +26,13 @@
         <reload-icon />
       </button>
     </div>
-    <!-- Two constraints hold this wrapper together, both about keeping the nav
+    <!-- The nav zones only claim horizontal gestures (`touch-pan-y`) on a double
+         page, where startPan/pan turn them into a scroll of the spread. On a
+         single page they keep `touch-manipulation`: the browser must be able to
+         pan a pinch-zoomed viewport from anywhere, zones included, and the tap
+         still reaches pointerup. Double-tap zoom stays off in both modes so two
+         quick page turns never zoom instead.
+         Two constraints hold this wrapper together, both about keeping the nav
          zones reachable on a wide double page:
          - it must stay OUTSIDE the scroll container, because an absolutely
            positioned box whose containing block is a scroll container belongs to
@@ -38,10 +44,12 @@
     <div
       class="relative block w-full"
       :class="isDoublePage ? '' : 'md:inline-block md:w-auto'">
+      <!-- `overscroll-x-contain` is scoped to double pages on purpose: on a
+           scroll container it also stops a pinch-zoomed viewport from panning
+           horizontally, and a single page has nothing to contain anyway. -->
       <div
         ref="scrollerRef"
-        class="page-scroller"
-        :class="isDoublePage ? 'overflow-x-auto' : 'overflow-x-hidden md:overflow-visible'">
+        :class="isDoublePage ? 'overflow-x-auto overscroll-x-contain' : 'overflow-x-hidden md:overflow-visible'">
         <img
           v-if="pageSrc"
           ref="imageRef"
@@ -52,8 +60,8 @@
           @error="errorHandler">
       </div>
       <button
-        class="absolute inset-y-0 left-0 w-1/4 z-10 touch-pan-y select-none focus:outline-none"
-        :class="isDoublePage ? 'cursor-grab' : ''"
+        class="absolute inset-y-0 left-0 w-1/4 z-10 select-none focus:outline-none"
+        :class="isDoublePage ? 'touch-pan-y touch-pinch-zoom cursor-grab' : 'touch-manipulation'"
         aria-label="Previous page"
         :disabled="!previousPage || isLoading"
         @pointerdown="startPan"
@@ -63,8 +71,8 @@
         @keyup.enter="goToPrevious"
         @keyup.space="goToPrevious" />
       <button
-        class="absolute inset-y-0 right-0 w-1/4 z-10 touch-pan-y select-none focus:outline-none"
-        :class="isDoublePage ? 'cursor-grab' : ''"
+        class="absolute inset-y-0 right-0 w-1/4 z-10 select-none focus:outline-none"
+        :class="isDoublePage ? 'touch-pan-y touch-pinch-zoom cursor-grab' : 'touch-manipulation'"
         aria-label="Next page"
         :disabled="!nextPage || isLoading"
         @pointerdown="startPan"
@@ -449,11 +457,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.page-scroller {
-  /* Don't hand the gesture over to `main` once this container hits its end. */
-  overscroll-behavior-x: contain;
-}
-
 .image {
   display: block;
   width: 100%;
