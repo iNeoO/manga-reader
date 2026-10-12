@@ -49,6 +49,24 @@ type CreatedPage = {
 const IMPORT_TRANSACTION_TIMEOUT_MS = 120_000;
 const IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
 
+const getNumericPageFileName = (fileName: string): number | null => {
+	const stem = fileName.slice(0, fileName.lastIndexOf("."));
+	const value = Number(stem);
+
+	return stem.trim() !== "" && Number.isFinite(value) ? value : null;
+};
+
+const comparePageFileNames = (left: string, right: string): number => {
+	const leftNumber = getNumericPageFileName(left);
+	const rightNumber = getNumericPageFileName(right);
+
+	if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) {
+		return leftNumber - rightNumber;
+	}
+
+	return left.localeCompare(right);
+};
+
 @Injectable()
 export class MangaImportService {
 	constructor(
@@ -298,7 +316,9 @@ export class MangaImportService {
 			.map((chapter) => ({
 				...chapter,
 				pages: [...chapter.pages]
-					.sort((left, right) => left.fileName.localeCompare(right.fileName))
+					.sort((left, right) =>
+						comparePageFileNames(left.fileName, right.fileName),
+					)
 					.map((page, index) => ({
 						...page,
 						number: index + 1,

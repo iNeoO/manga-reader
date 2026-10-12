@@ -95,6 +95,24 @@ const getContentType = (fileName: string): string => {
 	return "image/jpeg";
 };
 
+const getNumericPageFileName = (fileName: string): number | null => {
+	const stem = fileName.slice(0, fileName.lastIndexOf("."));
+	const value = Number(stem);
+
+	return stem.trim() !== "" && Number.isFinite(value) ? value : null;
+};
+
+const comparePageFileNames = (left: string, right: string): number => {
+	const leftNumber = getNumericPageFileName(left);
+	const rightNumber = getNumericPageFileName(right);
+
+	if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) {
+		return leftNumber - rightNumber;
+	}
+
+	return left.localeCompare(right);
+};
+
 const extractChapterNumber = (chapterName: string): number => {
 	const match = chapterName.match(/\d+/);
 	if (!match) {
@@ -172,7 +190,7 @@ const buildManifest = async (directoryPath: string): Promise<MangaManifest> => {
 				name: chapterName,
 				number: extractChapterNumber(chapterName),
 				pages: imageFiles
-					.sort((left, right) => left.localeCompare(right))
+					.sort(comparePageFileNames)
 					.map((fileName, index) => ({
 						fileName,
 						filePath: join(chapterPath, fileName),

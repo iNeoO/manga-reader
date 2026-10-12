@@ -11,6 +11,8 @@ type DeleteMangaResult = {
 	pageCount: number;
 };
 
+const STORAGE_DELETE_BATCH_SIZE = 100;
+
 @Injectable()
 export class MangasService {
 	constructor(
@@ -235,16 +237,24 @@ export class MangasService {
 
 	private async cleanupMangaStorage(mangaId: string, objectKeys: string[]) {
 		const uniqueKeys = [...new Set([...objectKeys, `${mangaId}/`])];
+		const failedKeys: string[] = [];
 
-		const results = await Promise.allSettled(
-			uniqueKeys.map(async (key) => {
-				await this.s3Service.deleteObject(key);
-			}),
-		);
+		for (
+			let offset = 0;
+			offset < uniqueKeys.length;
+			offset += STORAGE_DELETE_BATCH_SIZE
+		) {
+			const batch = uniqueKeys.slice(
+				offset,
+				offset + STORAGE_DELETE_BATCH_SIZE,
+			);
 
-		const failedKeys = results.flatMap((result, index) =>
-			result.status === "rejected" ? [uniqueKeys[index]] : [],
-		);
+			try {
+				failedKeys.push(...(await this.s3Service.deleteObjects(batch)));
+			} catch {
+				failedKeys.push(...batch);
+			}
+		}
 
 		if (failedKeys.length === 0) {
 			return;

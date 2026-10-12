@@ -1,5 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { type BucketItemStat, Client } from "minio";
+import { Agent as HttpAgent } from "node:http";
+import { Agent as HttpsAgent } from "node:https";
 import type { Readable } from "node:stream";
 import { env } from "../env";
 import { AppLogger } from "../logging/app-logger.service";
@@ -21,6 +23,20 @@ type ObjectBufferPayload = {
 	contentType?: string;
 };
 
+const S3_MAX_SOCKETS = 16;
+const S3_MAX_FREE_SOCKETS = 4;
+
+const createTransportAgent = () => {
+	const options = {
+		keepAlive: true,
+		keepAliveMsecs: 1_000,
+		maxFreeSockets: S3_MAX_FREE_SOCKETS,
+		maxSockets: S3_MAX_SOCKETS,
+	};
+
+	return env.S3_USE_SSL ? new HttpsAgent(options) : new HttpAgent(options);
+};
+
 @Injectable()
 export class S3Service implements OnModuleInit {
 	constructor(private readonly logger: AppLogger) {}
@@ -34,6 +50,7 @@ export class S3Service implements OnModuleInit {
 		useSSL: env.S3_USE_SSL,
 		accessKey: env.S3_ACCESS_KEY,
 		secretKey: env.S3_SECRET_KEY,
+		transportAgent: createTransportAgent(),
 	});
 
 	async onModuleInit(): Promise<void> {
@@ -143,6 +160,17 @@ export class S3Service implements OnModuleInit {
 
 	async deleteObject(key: string): Promise<void> {
 		await this.client.removeObject(this.bucket, key);
+	}
+
+	async deleteObjects(keys: string[]): Promise<string[]> {
+		if (keys.length === 0) {
+			return [];
+		}
+
+		const responses = await this.client.removeObjects(this.bucket, keys);
+		return responses.flatMap((response) =>
+			response?.Error?.Key ? [response.Error.Key] : [],
+		);
 	}
 
 	private getContentType(stat: BucketItemStat): string | undefined {
